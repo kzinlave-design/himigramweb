@@ -3,9 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Himigram Web — Вход по QR</title>
+  <title>Himigram Web</title>
 
-  <!-- Подключаем стилевое оформление и библиотеки -->
+  <!-- Полифил Buffer (ОБЯЗАТЕЛЕН для генерации QR в GramJS) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/6.0.3/buffer.min.js"></script>
+  <script>window.Buffer = window.buffer.Buffer;</script>
+
+  <!-- Библиотека GramJS и QR-генератор -->
   <script src="https://unpkg.com/telegram@2.22.2/browser/gramjs.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
@@ -33,205 +37,221 @@
       overflow: hidden;
     }
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: scale(0.96); }
-      to { opacity: 1; transform: scale(1); }
-    }
-
-    /* Карточка авторизации */
     .auth-container {
       background: var(--bg-card);
       width: 420px;
-      padding: 40px 32px;
+      padding: 36px 28px;
       border-radius: 20px;
       box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
       text-align: center;
       border: 1px solid var(--border);
-      animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-      position: relative;
     }
 
     .tg-logo {
-      width: 80px;
-      height: 80px;
-      margin: 0 auto 16px auto;
+      width: 70px;
+      height: 70px;
+      margin: 0 auto 12px auto;
       display: block;
       object-fit: contain;
     }
 
-    h2 { font-size: 22px; font-weight: 600; margin-bottom: 8px; }
-    p.subtext { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.4; }
+    h2 { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+    p.subtext { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.4; }
 
-    /* Обертка для QR-кода */
+    .view-mode { display: none; }
+    .view-mode.active { display: block; }
+
+    /* QR Стили */
     .qr-wrapper {
       position: relative;
-      width: 220px;
-      height: 220px;
-      margin: 0 auto 20px auto;
+      width: 210px;
+      height: 210px;
+      margin: 0 auto 16px auto;
       background: #ffffff;
-      padding: 12px;
+      padding: 10px;
       border-radius: 16px;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     }
 
-    #qrcode img, #qrcode canvas {
-      display: block;
+    #qrcode canvas, #qrcode img {
       width: 100% !important;
       height: 100% !important;
     }
 
-    /* Иконка логотипа по центру QR-кода */
-    .qr-center-logo {
-      position: absolute;
-      width: 40px;
-      height: 40px;
-      background: #fff;
-      border-radius: 50%;
-      padding: 4px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-    }
-
-    .instructions {
-      text-align: left;
-      background: rgba(255, 255, 255, 0.03);
-      padding: 14px 16px;
-      border-radius: 12px;
+    /* Форма ввода */
+    .auth-input {
+      width: 100%;
+      padding: 12px 14px;
+      background: var(--bg-main);
       border: 1px solid var(--border);
-      font-size: 13px;
-      color: var(--text-muted);
-      margin-bottom: 20px;
-      line-height: 1.6;
+      border-radius: 10px;
+      color: #fff;
+      margin-bottom: 12px;
+      outline: none;
+      font-size: 14px;
     }
+    .auth-input:focus { border-color: var(--accent); }
 
-    .instructions ol {
-      padding-left: 18px;
-    }
-
-    .btn-secondary {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--accent);
+    .btn-primary {
       width: 100%;
       padding: 12px;
+      background: var(--accent);
+      color: white;
+      border: none;
       border-radius: 10px;
-      font-size: 14px;
-      font-weight: 600;
+      font-weight: bold;
       cursor: pointer;
-      transition: background 0.2s, border-color 0.2s;
+      font-size: 14px;
+      margin-bottom: 10px;
     }
+    .btn-primary:hover { background: var(--accent-hover); }
 
-    .btn-secondary:hover {
-      background: rgba(82, 136, 193, 0.08);
-      border-color: var(--accent);
-    }
-
-    /* Статус/ошибка */
-    .status-text {
-      font-size: 13px;
+    .btn-link {
+      background: none;
+      border: none;
       color: var(--accent);
-      margin-top: 10px;
+      font-size: 13px;
+      cursor: pointer;
+      margin-top: 8px;
     }
 
-    /* Спиннер загрузки */
+    .error-box {
+      color: var(--danger);
+      font-size: 12px;
+      background: rgba(239, 68, 68, 0.1);
+      padding: 8px 12px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      display: none;
+      word-break: break-word;
+    }
+
     .spinner {
-      border: 3px solid rgba(255,255,255,0.1);
+      border: 3px solid rgba(0,0,0,0.1);
       border-top: 3px solid var(--accent);
       border-radius: 50%;
-      width: 30px;
-      height: 30px;
+      width: 32px;
+      height: 32px;
       animation: spin 0.8s linear infinite;
-      margin: 0 auto;
     }
 
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
 
   <div class="auth-container">
     <img src="https://telegram.org/img/t_logo.png" alt="Telegram Logo" class="tg-logo">
-    <h2>Вход в Himigram Web</h2>
-    <p class="subtext">Сканируйте QR-код с помощью Telegram на телефоне</p>
+    <h2>Himigram Web</h2>
+    <p id="subtext" class="subtext">Сканируйте QR-код через Telegram на телефоне</p>
 
-    <!-- Блок с QR-кодом -->
-    <div class="qr-wrapper">
-      <div id="qrcode">
-        <div class="spinner"></div>
+    <div id="error-msg" class="error-box"></div>
+
+    <!-- РЕЖИМ 1: QR КОД -->
+    <div id="mode-qr" class="view-mode active">
+      <div class="qr-wrapper">
+        <div id="qrcode"><div class="spinner"></div></div>
       </div>
-      <img src="https://telegram.org/img/t_logo.png" class="qr-center-logo" alt="logo">
+      <button class="btn-link" onclick="switchMode('phone')">Войти по номеру телефона / API</button>
     </div>
 
-    <!-- Инструкция -->
-    <div class="instructions">
-      <ol>
-        <li>Откройте <b>Telegram</b> на телефоне</li>
-        <li>Перейдите в <b>Настройки</b> → <b>Устройства</b></li>
-        <li>Нажмите <b>Подключить устройство</b></li>
-        <li>Наведите камеру на этот экран</li>
-      </ol>
-    </div>
+    <!-- РЕЖИМ 2: ВХОД ПО НОМЕРУ -->
+    <div id="mode-phone" class="view-mode">
+      <div id="step-1">
+        <input type="text" id="api-id" class="auth-input" placeholder="API ID">
+        <input type="text" id="api-hash" class="auth-input" placeholder="API Hash">
+        <input type="text" id="phone" class="auth-input" placeholder="Номер телефона (+7...)">
+        <button class="btn-primary" id="btn-send-code" onclick="requestCode()">Отправить код</button>
+      </div>
 
-    <div id="status" class="status-text">Генерация QR-кода...</div>
-    <br>
-    <button class="btn-secondary" onclick="usePhoneAuth()">Войти по номеру телефона</button>
+      <div id="step-2" style="display:none;">
+        <input type="text" id="phone-code" class="auth-input" placeholder="Код из сообщения">
+        <button class="btn-primary" id="btn-submit-code" onclick="submitCode()">Подтвердить код</button>
+      </div>
+
+      <div id="step-3" style="display:none;">
+        <input type="password" id="password-2fa" class="auth-input" placeholder="Облачный пароль (2FA)">
+        <button class="btn-primary" id="btn-submit-2fa" onclick="submit2FA()">Войти</button>
+      </div>
+
+      <button class="btn-link" onclick="switchMode('qr')">← Вернуться к QR-коду</button>
+    </div>
   </div>
 
   <script>
     const tg = window.telegram || window.gramjs;
     const { StringSession } = tg.sessions;
-    const { TelegramClient } = tg;
+    const { TelegramClient, Api } = tg;
 
-    // Вставь сюда свои API ID и API Hash
-    const API_ID = parseInt(localStorage.getItem('himigram_api_id')) || 0;
-    const API_HASH = localStorage.getItem('himigram_api_hash') || '';
-
-    let qrCodeObj = null;
     let client = null;
+    let qrCodeObj = null;
+    let phoneCodeHash = null;
 
+    function showError(msg) {
+      const box = document.getElementById('error-msg');
+      box.innerText = msg;
+      box.style.display = 'block';
+    }
+
+    function clearError() {
+      const box = document.getElementById('error-msg');
+      box.style.display = 'none';
+      box.innerText = '';
+    }
+
+    function switchMode(mode) {
+      clearError();
+      document.querySelectorAll('.view-mode').forEach(m => m.classList.remove('active'));
+      if (mode === 'qr') {
+        document.getElementById('mode-qr').classList.add('active');
+        document.getElementById('subtext').innerText = 'Сканируйте QR-код через Telegram на телефоне';
+        initQRAuth();
+      } else {
+        document.getElementById('mode-phone').classList.add('active');
+        document.getElementById('subtext').innerText = 'Введите API данные и номер телефона';
+      }
+    }
+
+    // ИНИЦИАЛИЗАЦИЯ КЛИЕНТА
+    async function getClient(apiId, apiHash) {
+      if (!client) {
+        client = new TelegramClient(new StringSession(''), parseInt(apiId), apiHash, {
+          connectionRetries: 5,
+          useWSS: true // Защита от блокировок WebSocket
+        });
+        await client.connect();
+      }
+      return client;
+    }
+
+    // 1. ЛОГИКА ГЕНЕРАЦИИ QR-КОДА
     async function initQRAuth() {
-      const statusEl = document.getElementById('status');
+      const apiId = localStorage.getItem('himigram_api_id') || "2040"; // Дефолтный публичный ID при отсутствии
+      const apiHash = localStorage.getItem('himigram_api_hash') || "b18441a1ed609e1c87a12a53845487d4";
+
       const qrContainer = document.getElementById('qrcode');
 
-      if (!API_ID || !API_HASH) {
-        statusEl.innerText = "Ошибка: не найдены API ID и API Hash в localStorage!";
-        statusEl.style.color = "var(--danger)";
-        return;
-      }
-
       try {
-        client = new TelegramClient(new StringSession(''), API_ID, API_HASH, {
-          connectionRetries: 5
-        });
+        const cli = await getClient(apiId, apiHash);
 
-        await client.connect();
-        statusEl.innerText = "Ожидание сканирования...";
-
-        // Запуск встроенной функции GramJS для QR-авторизации
-        await client.signInWithQrCode({
-          apiId: API_ID,
-          apiHash: API_HASH,
+        await cli.signInWithQrCode({
+          apiId: parseInt(apiId),
+          apiHash: apiHash,
         }, {
           qrCode: async (qr) => {
-            qrContainer.innerHTML = ''; // Убираем спиннер
-
-            // Токен для QR-кода от Telegram (tg://login?token=...)
-            const qrUrl = `tg://login?token=${qr.token.toString("base64url")}`;
+            qrContainer.innerHTML = '';
+            
+            // Превращаем токен в ссылку для Telegram
+            const tokenBase64 = Buffer.from(qr.token).toString("base64url");
+            const qrUrl = `tg://login?token=${tokenBase64}`;
 
             if (!qrCodeObj) {
               qrCodeObj = new QRCode(qrContainer, {
                 text: qrUrl,
-                width: 196,
-                height: 196,
-                correctLevel: QRCode.CorrectLevel.L
+                width: 190,
+                height: 190
               });
             } else {
               qrCodeObj.clear();
@@ -239,35 +259,92 @@
             }
           },
           password: async (hint) => {
-            // Если включена 2FA (Облачный пароль)
-            return prompt(`Введите ваш облачный пароль 2FA (Подсказка: ${hint}):`);
+            return prompt(`Введите пароль 2FA (Подсказка: ${hint}):`);
           }
         });
 
-        // Успешный вход
-        statusEl.innerText = "Авторизация прошла успешно!";
-        statusEl.style.color = "#22c55e";
-        
-        // Сохраняем сессию
-        localStorage.setItem('himigram_session', client.session.save());
-        
-        setTimeout(() => {
-          alert("Успешный вход! Сессия сохранена.");
-          // window.location.href = 'chat.html';
-        }, 1000);
-
+        localStorage.setItem('himigram_session', cli.session.save());
+        alert("Вход по QR выполнен успешно!");
       } catch (err) {
-        console.error(err);
-        statusEl.innerText = "Ошибка входа: " + (err.errorMessage || err.message);
-        statusEl.style.color = "var(--danger)";
+        console.error("QR Error:", err);
+        showError("Ошибка QR: " + (err.errorMessage || err.message || "Не удалось сгенерировать"));
       }
     }
 
-    function usePhoneAuth() {
-      alert("Переход на форму входа по номеру телефона...");
+    // 2. ЛОГИКА ВХОДА ПО НОМЕРУ
+    async function requestCode() {
+      clearError();
+      const apiId = document.getElementById('api-id').value.trim();
+      const apiHash = document.getElementById('api-hash').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+
+      if (!apiId || !apiHash || !phone) return showError('Заполните API ID, API Hash и Телефон!');
+
+      const btn = document.getElementById('btn-send-code');
+      btn.disabled = true;
+      btn.innerText = 'Отправка...';
+
+      try {
+        localStorage.setItem('himigram_api_id', apiId);
+        localStorage.setItem('himigram_api_hash', apiHash);
+
+        const cli = await getClient(apiId, apiHash);
+        const res = await cli.sendCode({ apiId: parseInt(apiId), apiHash }, phone);
+        
+        phoneCodeHash = res.phoneCodeHash;
+
+        document.getElementById('step-1').style.display = 'none';
+        document.getElementById('step-2').style.display = 'block';
+        document.getElementById('subtext').innerText = `Код отправлен в приложение на номер ${phone}`;
+      } catch (err) {
+        console.error("Phone Error:", err);
+        showError("Ошибка отправки: " + (err.errorMessage || err.message));
+        btn.disabled = false;
+        btn.innerText = 'Отправить код';
+      }
     }
 
-    window.addEventListener('DOMContentLoaded', initQRAuth);
+    async function submitCode() {
+      clearError();
+      const phone = document.getElementById('phone').value.trim();
+      const code = document.getElementById('phone-code').value.trim();
+
+      if (!code) return showError('Введите код!');
+
+      try {
+        await client.invoke(new Api.auth.SignIn({
+          phoneNumber: phone,
+          phoneCodeHash: phoneCodeHash,
+          phoneCode: code
+        }));
+
+        localStorage.setItem('himigram_session', client.session.save());
+        alert("Успешный вход!");
+      } catch (err) {
+        if (err.errorMessage === 'SESSION_PASSWORD_NEEDED') {
+          document.getElementById('step-2').style.display = 'none';
+          document.getElementById('step-3').style.display = 'block';
+        } else {
+          showError("Ошибка кода: " + (err.errorMessage || err.message));
+        }
+      }
+    }
+
+    async function submit2FA() {
+      clearError();
+      const password = document.getElementById('password-2fa').value.trim();
+      try {
+        await client.signInWithPassword({ password });
+        localStorage.setItem('himigram_session', client.session.save());
+        alert("Успешный вход!");
+      } catch (err) {
+        showError("Ошибка 2FA: " + (err.errorMessage || err.message));
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initQRAuth();
+    });
   </script>
 </body>
 </html>
