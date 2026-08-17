@@ -22,22 +22,9 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: var(--bg-main); color: var(--text); height: 100vh; overflow: hidden; display: flex; }
 
-    /* --- Анимации --- */
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(12px); }
       to { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes flyPaperPlane {
-      0% { transform: scale(1) translate(0, 0) rotate(0deg); opacity: 1; }
-      30% { transform: scale(1.1) translate(-15px, 15px) rotate(-10deg); opacity: 1; }
-      100% { transform: scale(0.2) translate(400px, -400px) rotate(30deg); opacity: 0; }
-    }
-
-    @keyframes pulseGlow {
-      0% { box-shadow: 0 0 0 0 rgba(82, 136, 193, 0.4); }
-      70% { box-shadow: 0 0 0 15px rgba(82, 136, 193, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(82, 136, 193, 0); }
     }
 
     /* Экран Входа */
@@ -53,12 +40,9 @@
       animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    #lottie-plane {
-      width: 110px; height: 110px; margin: 0 auto 6px auto;
-      transition: transform 0.3s ease;
-    }
-    #lottie-plane.flying {
-      animation: flyPaperPlane 0.8s forwards ease-in-out;
+    .tg-logo {
+      width: 90px; height: 90px; margin: 0 auto 16px auto; display: block;
+      object-fit: contain;
     }
 
     .auth-card h2 { font-size: 22px; margin-bottom: 6px; font-weight: 600; }
@@ -128,15 +112,15 @@
     .feature-card h4 { color: var(--accent); margin-bottom: 6px; font-size: 14px; }
   </style>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/telegram@latest/browser/gramjs.js"></script>
+  <!-- Подключение GramJS с проверенного CDN -->
+  <script src="https://unpkg.com/telegram@2.22.2/browser/gramjs.js"></script>
 </head>
 <body>
 
   <!-- Экран Входа -->
   <div id="auth-screen">
     <div class="auth-card">
-      <div id="lottie-plane"></div>
+      <img src="https://telegram.org/img/t_logo.png" alt="Telegram Logo" class="tg-logo">
       <h2>Вход в Himigram</h2>
       <p id="auth-subtext">Введите данные вашего Telegram приложения</p>
       <div id="auth-error" class="error-msg"></div>
@@ -209,21 +193,21 @@
   </div>
 
   <script>
-    const StringSession = window.telegram.sessions.StringSession;
+    // Безопасное определение библиотеки
+    const tg = window.telegram || window.gramjs;
+
+    if (!tg) {
+      alert("Ошибка: Библиотека GramJS не загрузилась. Проверьте интернет-соединение.");
+    }
+
+    const { StringSession } = tg.sessions;
+    const { TelegramClient, Api } = tg;
 
     let client = null;
     let activePeer = null;
     let phoneCodeHash = null;
 
     window.addEventListener('DOMContentLoaded', () => {
-      lottie.loadAnimation({
-        container: document.getElementById('lottie-plane'),
-        renderer: 'svg',
-        loop: true,
-        autoplay: true,
-        path: 'https://assets2.lottiefiles.com/packages/lf20_TgA2fC.json'
-      });
-
       checkSavedSession();
     });
 
@@ -245,10 +229,10 @@
 
       if (apiId && apiHash && savedSession) {
         try {
-          client = new window.telegram.TelegramClient(new StringSession(savedSession), parseInt(apiId), apiHash, { connectionRetries: 5 });
+          client = new TelegramClient(new StringSession(savedSession), parseInt(apiId), apiHash, { connectionRetries: 5 });
           await client.connect();
           if (await client.checkAuthorization()) {
-            finishAuthAnimation();
+            hideAuthScreen();
             onSuccessLogin();
           }
         } catch (e) {
@@ -273,7 +257,7 @@
         localStorage.setItem('himigram_api_id', apiId);
         localStorage.setItem('himigram_api_hash', apiHash);
 
-        client = new window.telegram.TelegramClient(new StringSession(''), parseInt(apiId), apiHash, { connectionRetries: 5 });
+        client = new TelegramClient(new StringSession(''), parseInt(apiId), apiHash, { connectionRetries: 5 });
         await client.connect();
 
         const res = await client.sendCode({ apiId: parseInt(apiId), apiHash }, phone);
@@ -301,7 +285,7 @@
       btn.innerText = 'Проверка...';
 
       try {
-        await client.invoke(new window.telegram.Api.auth.SignIn({
+        await client.invoke(new Api.auth.SignIn({
           phoneNumber: phone,
           phoneCodeHash: phoneCodeHash,
           phoneCode: code
@@ -340,19 +324,14 @@
 
     function saveSessionAndFinish() {
       localStorage.setItem('himigram_session', client.session.save());
-      finishAuthAnimation();
+      hideAuthScreen();
       onSuccessLogin();
     }
 
-    function finishAuthAnimation() {
-      const plane = document.getElementById('lottie-plane');
-      plane.classList.add('flying');
-
-      setTimeout(() => {
-        const auth = document.getElementById('auth-screen');
-        auth.style.opacity = '0';
-        auth.style.visibility = 'hidden';
-      }, 500);
+    function hideAuthScreen() {
+      const auth = document.getElementById('auth-screen');
+      auth.style.opacity = '0';
+      auth.style.visibility = 'hidden';
     }
 
     function onSuccessLogin() {
