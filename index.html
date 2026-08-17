@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Himigram Web</title>
 
-  <!-- Полифил Buffer для работы GramJS -->
+  <!-- Полифил Buffer для GramJS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/6.0.3/buffer.min.js"></script>
 
-  <!-- Библиотека GramJS и QR-генератор -->
-  <script src="https://unpkg.com/telegram@2.22.2/browser/gramjs.js"></script>
+  <!-- Рабочий бандл GramJS через jsDelivr + QR-генератор -->
+  <script src="https://cdn.jsdelivr.net/npm/telegram@2.22.2/browser/gramjs.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
   <style>
@@ -142,7 +142,7 @@
   <div class="auth-container">
     <img src="https://telegram.org/img/t_logo.png" alt="Telegram Logo" class="tg-logo">
     <h2>Himigram Web</h2>
-    <p id="subtext" class="subtext">Сканируйте QR-код через Telegram на телефоне</p>
+    <p id="subtext" class="subtext">Загрузка библиотеки...</p>
 
     <div id="error-msg" class="error-box"></div>
 
@@ -178,18 +178,22 @@
   </div>
 
   <script>
-    // 1. Объявляем глобальные переменные в самом начале файла
     var client = null;
     var phoneCodeHash = null;
     var qrCodeObj = null;
 
-    // Инициализация полифила Buffer
     if (typeof window.Buffer === 'undefined' && window.buffer) {
       window.Buffer = window.buffer.Buffer;
     }
 
-    function getTelegram() {
-      return window.telegram || window.gramjs;
+    // Вспомогательная функция ожидания загрузки GramJS в DOM
+    async function waitForGramJS(maxAttempts = 50) {
+      for (let i = 0; i < maxAttempts; i++) {
+        const tg = window.telegram || window.gramjs || (window.GramJS ? window.GramJS : null);
+        if (tg && tg.TelegramClient) return tg;
+        await new Promise(r => setTimeout(r, 100));
+      }
+      throw new Error("Не удалось загрузить скрипт GramJS. Проверьте интернет-соединение или блокировки CDN.");
     }
 
     function showError(msg) {
@@ -217,11 +221,8 @@
       }
     }
 
-    // Инициализация/получение экземпляра TelegramClient
     async function initClient(apiId, apiHash) {
-      const tg = getTelegram();
-      if (!tg) throw new Error("Библиотека GramJS не загрузилась!");
-
+      const tg = await waitForGramJS();
       const { StringSession, TelegramClient } = tg;
 
       if (!client) {
@@ -240,7 +241,6 @@
       return client;
     }
 
-    // Вход по QR
     async function initQRAuth() {
       const apiId = localStorage.getItem('himigram_api_id') || "2040";
       const apiHash = localStorage.getItem('himigram_api_hash') || "b18441a1ed609e1c87a12a53845487d4";
@@ -248,6 +248,7 @@
 
       try {
         const cli = await initClient(apiId, apiHash);
+        document.getElementById('subtext').innerText = 'Сканируйте QR-код через Telegram на телефоне';
 
         await cli.signInWithQrCode({
           apiId: parseInt(apiId),
@@ -279,11 +280,10 @@
         alert("Вход по QR выполнен успешно!");
       } catch (err) {
         console.error("QR Error:", err);
-        showError("Ошибка QR: " + (err.errorMessage || err.message || "Не удалось сгенерировать"));
+        showError("Ошибка: " + (err.errorMessage || err.message || "Не удалось запустить авторизацию"));
       }
     }
 
-    // Вход по Номеру
     async function requestCode() {
       clearError();
       const apiId = document.getElementById('api-id').value.trim();
@@ -323,9 +323,8 @@
 
       if (!code) return showError('Введите код!');
 
-      const tg = getTelegram();
-
       try {
+        const tg = await waitForGramJS();
         await client.invoke(new tg.Api.auth.SignIn({
           phoneNumber: phone,
           phoneCodeHash: phoneCodeHash,
