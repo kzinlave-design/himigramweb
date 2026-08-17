@@ -3,14 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Himigram Desktop</title>
+  <title>Himigram Web — Вход по QR</title>
+
+  <!-- Подключаем стилевое оформление и библиотеки -->
+  <script src="https://unpkg.com/telegram@2.22.2/browser/gramjs.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
   <style>
     :root {
       --bg-main: #0f1821;
-      --bg-sidebar: #17212b;
-      --bg-chat: #0e1621;
-      --bg-msg-in: #182533;
-      --bg-msg-out: #2b5278;
+      --bg-card: #17212b;
       --accent: #5288c1;
       --accent-hover: #649ad5;
       --text: #f5f5f5;
@@ -20,407 +22,252 @@
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: var(--bg-main); color: var(--text); height: 100vh; overflow: hidden; display: flex; }
+
+    body {
+      background: var(--bg-main);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
 
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(12px); }
-      to { opacity: 1; transform: translateY(0); }
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
     }
 
-    /* Экран Входа */
-    #auth-screen {
-      position: fixed; inset: 0; background: var(--bg-main); z-index: 999;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      transition: opacity 0.5s ease, visibility 0.5s ease;
-    }
-
-    .auth-card {
-      background: var(--bg-sidebar); width: 400px; padding: 36px 30px; border-radius: 16px;
-      box-shadow: 0 12px 32px rgba(0,0,0,0.5); text-align: center; border: 1px solid var(--border);
-      animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    /* Карточка авторизации */
+    .auth-container {
+      background: var(--bg-card);
+      width: 420px;
+      padding: 40px 32px;
+      border-radius: 20px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+      text-align: center;
+      border: 1px solid var(--border);
+      animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
     }
 
     .tg-logo {
-      width: 90px; height: 90px; margin: 0 auto 16px auto; display: block;
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 16px auto;
+      display: block;
       object-fit: contain;
     }
 
-    .auth-card h2 { font-size: 22px; margin-bottom: 6px; font-weight: 600; }
-    .auth-card p { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.4; }
+    h2 { font-size: 22px; font-weight: 600; margin-bottom: 8px; }
+    p.subtext { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.4; }
 
-    .auth-input {
-      width: 100%; padding: 12px 14px; background: var(--bg-main); border: 1px solid var(--border);
-      border-radius: 10px; color: #fff; margin-bottom: 12px; outline: none; font-size: 14px;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .auth-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(82, 136, 193, 0.2); }
-
-    .btn-primary {
-      width: 100%; padding: 12px; background: var(--accent); color: white; border: none;
-      border-radius: 10px; font-weight: bold; cursor: pointer; transition: background 0.2s, transform 0.1s; font-size: 14px;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-    }
-    .btn-primary:hover { background: var(--accent-hover); }
-    .btn-primary:active { transform: scale(0.98); }
-
-    .auth-step { display: none; flex-direction: column; animation: fadeIn 0.3s ease forwards; }
-    .auth-step.active { display: flex; }
-
-    .error-msg { color: var(--danger); font-size: 12px; margin-bottom: 10px; display: none; }
-
-    /* Главный Интерфейс */
-    #app { display: flex; width: 100vw; height: 100vh; }
-
-    #sidebar { width: 320px; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
-    .sidebar-header { padding: 14px 16px; background: var(--bg-sidebar); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
-    
-    .nav-tabs { display: flex; background: var(--bg-sidebar); border-bottom: 1px solid var(--border); }
-    .tab-btn { flex: 1; padding: 12px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-weight: 600; font-size: 13px; transition: color 0.2s; position: relative; }
-    .tab-btn.active { color: var(--accent); }
-    .tab-btn.active::after {
-      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: var(--accent);
-      animation: fadeIn 0.2s ease;
+    /* Обертка для QR-кода */
+    .qr-wrapper {
+      position: relative;
+      width: 220px;
+      height: 220px;
+      margin: 0 auto 20px auto;
+      background: #ffffff;
+      padding: 12px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     }
 
-    #dialogs-list { flex: 1; overflow-y: auto; }
-    .dialog-item {
-      padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.02); cursor: pointer;
-      display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;
+    #qrcode img, #qrcode canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
     }
-    .dialog-item:hover { background: rgba(255,255,255,0.05); }
 
-    #chat-container { flex: 1; display: flex; flex-direction: column; background: var(--bg-chat); }
-    #chat-header { padding: 14px 20px; background: var(--bg-sidebar); border-bottom: 1px solid var(--border); font-weight: bold; }
-
-    #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
-    .msg {
-      max-width: 65%; padding: 8px 12px; border-radius: 12px; font-size: 14px; line-height: 1.4;
-      word-break: break-word; animation: fadeIn 0.25s cubic-bezier(0, 0, 0.2, 1);
+    /* Иконка логотипа по центру QR-кода */
+    .qr-center-logo {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      background: #fff;
+      border-radius: 50%;
+      padding: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
     }
-    .msg.in { background: var(--bg-msg-in); align-self: flex-start; border-bottom-left-radius: 4px; }
-    .msg.out { background: var(--bg-msg-out); align-self: flex-end; border-bottom-right-radius: 4px; }
 
-    #input-area { padding: 12px 16px; background: var(--bg-sidebar); display: flex; gap: 10px; align-items: center; border-top: 1px solid var(--border); }
-    #message-input { flex: 1; padding: 10px 16px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg-main); color: #fff; outline: none; transition: border-color 0.2s; }
-    #message-input:focus { border-color: var(--accent); }
-    .icon-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; padding: 6px; transition: color 0.2s, transform 0.1s; }
-    .icon-btn:hover { color: var(--accent); transform: scale(1.1); }
+    .instructions {
+      text-align: left;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
 
-    .view-panel { padding: 16px; display: none; flex-direction: column; gap: 12px; animation: fadeIn 0.2s ease; }
-    .view-panel.active { display: flex; }
-    .feature-card { background: var(--bg-main); padding: 14px; border-radius: 10px; border: 1px solid var(--border); }
-    .feature-card h4 { color: var(--accent); margin-bottom: 6px; font-size: 14px; }
+    .instructions ol {
+      padding-left: 18px;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--accent);
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(82, 136, 193, 0.08);
+      border-color: var(--accent);
+    }
+
+    /* Статус/ошибка */
+    .status-text {
+      font-size: 13px;
+      color: var(--accent);
+      margin-top: 10px;
+    }
+
+    /* Спиннер загрузки */
+    .spinner {
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top: 3px solid var(--accent);
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
-
-  <!-- Подключение GramJS с проверенного CDN -->
-  <script src="https://unpkg.com/telegram@2.22.2/browser/gramjs.js"></script>
 </head>
 <body>
 
-  <!-- Экран Входа -->
-  <div id="auth-screen">
-    <div class="auth-card">
-      <img src="https://telegram.org/img/t_logo.png" alt="Telegram Logo" class="tg-logo">
-      <h2>Вход в Himigram</h2>
-      <p id="auth-subtext">Введите данные вашего Telegram приложения</p>
-      <div id="auth-error" class="error-msg"></div>
+  <div class="auth-container">
+    <img src="https://telegram.org/img/t_logo.png" alt="Telegram Logo" class="tg-logo">
+    <h2>Вход в Himigram Web</h2>
+    <p class="subtext">Сканируйте QR-код с помощью Telegram на телефоне</p>
 
-      <!-- Шаг 1 -->
-      <div id="step-1" class="auth-step active">
-        <input type="text" id="api-id" class="auth-input" placeholder="API ID">
-        <input type="text" id="api-hash" class="auth-input" placeholder="API Hash">
-        <input type="text" id="phone" class="auth-input" placeholder="Номер телефона (+7...)">
-        <button class="btn-primary" id="btn-step-1" onclick="requestCode()">Отправить код</button>
+    <!-- Блок с QR-кодом -->
+    <div class="qr-wrapper">
+      <div id="qrcode">
+        <div class="spinner"></div>
       </div>
-
-      <!-- Шаг 2 -->
-      <div id="step-2" class="auth-step">
-        <input type="text" id="phone-code" class="auth-input" placeholder="Код из приложения Telegram">
-        <button class="btn-primary" id="btn-step-2" onclick="submitCode()">Войти</button>
-      </div>
-
-      <!-- Шаг 3 (2FA) -->
-      <div id="step-3" class="auth-step">
-        <input type="password" id="password-2fa" class="auth-input" placeholder="Облачный пароль (2FA)">
-        <button class="btn-primary" id="btn-step-3" onclick="submit2FA()">Подтвердить пароль</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Главное Окно -->
-  <div id="app">
-    <div id="sidebar">
-      <div class="sidebar-header">
-        <span>Himigram Desktop</span>
-        <span id="status-badge" style="font-size: 11px; color: #ef4444;">Offline</span>
-      </div>
-
-      <div class="nav-tabs">
-        <button class="tab-btn active" onclick="switchTab('chats')">Чаты</button>
-        <button class="tab-btn" onclick="switchTab('settings')">Himigram</button>
-      </div>
-
-      <div id="tab-chats" class="view-panel active" style="padding:0;">
-        <div id="dialogs-list"></div>
-      </div>
-
-      <div id="tab-settings" class="view-panel">
-        <h3>⚡ Himigram Features</h3>
-        <div class="feature-card">
-          <h4>Ghost Mode</h4>
-          <label><input type="checkbox" id="ghost-mode"> Не отправлять статус «Прочитано»</label>
-        </div>
-        <div class="feature-card">
-          <h4>Автоответчик</h4>
-          <label><input type="checkbox" id="auto-reply"> Включить автоответ</label>
-          <input type="text" id="auto-reply-text" class="auth-input" value="Отвечу позже (Himigram)" style="margin-top:6px;">
-        </div>
-        <button class="btn-primary" onclick="logout()" style="background:#ef4444;">Выйти из аккаунта</button>
-      </div>
+      <img src="https://telegram.org/img/t_logo.png" class="qr-center-logo" alt="logo">
     </div>
 
-    <div id="chat-container">
-      <div id="chat-header">Выберите чат из списка слева</div>
-      <div id="messages"></div>
-      
-      <div id="input-area">
-        <input type="file" id="file-input" style="display:none;" onchange="sendFile(this.files[0])">
-        <button class="icon-btn" onclick="document.getElementById('file-input').click()">📎</button>
-        <input type="text" id="message-input" placeholder="Напишите сообщение..." disabled onkeypress="if(event.key==='Enter') sendMessage()">
-        <button class="icon-btn" id="send-btn" onclick="sendMessage()" disabled>➔</button>
-      </div>
+    <!-- Инструкция -->
+    <div class="instructions">
+      <ol>
+        <li>Откройте <b>Telegram</b> на телефоне</li>
+        <li>Перейдите в <b>Настройки</b> → <b>Устройства</b></li>
+        <li>Нажмите <b>Подключить устройство</b></li>
+        <li>Наведите камеру на этот экран</li>
+      </ol>
     </div>
+
+    <div id="status" class="status-text">Генерация QR-кода...</div>
+    <br>
+    <button class="btn-secondary" onclick="usePhoneAuth()">Войти по номеру телефона</button>
   </div>
 
   <script>
-    // Безопасное определение библиотеки
     const tg = window.telegram || window.gramjs;
-
-    if (!tg) {
-      alert("Ошибка: Библиотека GramJS не загрузилась. Проверьте интернет-соединение.");
-    }
-
     const { StringSession } = tg.sessions;
-    const { TelegramClient, Api } = tg;
+    const { TelegramClient } = tg;
 
+    // Вставь сюда свои API ID и API Hash
+    const API_ID = parseInt(localStorage.getItem('himigram_api_id')) || 0;
+    const API_HASH = localStorage.getItem('himigram_api_hash') || '';
+
+    let qrCodeObj = null;
     let client = null;
-    let activePeer = null;
-    let phoneCodeHash = null;
 
-    window.addEventListener('DOMContentLoaded', () => {
-      checkSavedSession();
-    });
+    async function initQRAuth() {
+      const statusEl = document.getElementById('status');
+      const qrContainer = document.getElementById('qrcode');
 
-    function showError(msg) {
-      const err = document.getElementById('auth-error');
-      err.innerText = msg;
-      err.style.display = 'block';
-    }
-
-    function clearError() {
-      const err = document.getElementById('auth-error');
-      err.style.display = 'none';
-    }
-
-    async function checkSavedSession() {
-      const apiId = localStorage.getItem('himigram_api_id');
-      const apiHash = localStorage.getItem('himigram_api_hash');
-      const savedSession = localStorage.getItem('himigram_session');
-
-      if (apiId && apiHash && savedSession) {
-        try {
-          client = new TelegramClient(new StringSession(savedSession), parseInt(apiId), apiHash, { connectionRetries: 5 });
-          await client.connect();
-          if (await client.checkAuthorization()) {
-            hideAuthScreen();
-            onSuccessLogin();
-          }
-        } catch (e) {
-          console.error("Ошибка автозагрузки сессии:", e);
-        }
+      if (!API_ID || !API_HASH) {
+        statusEl.innerText = "Ошибка: не найдены API ID и API Hash в localStorage!";
+        statusEl.style.color = "var(--danger)";
+        return;
       }
-    }
-
-    async function requestCode() {
-      clearError();
-      const apiId = document.getElementById('api-id').value.trim();
-      const apiHash = document.getElementById('api-hash').value.trim();
-      const phone = document.getElementById('phone').value.trim();
-
-      if (!apiId || !apiHash || !phone) return showError('Заполните API ID, API Hash и Номер телефона!');
-
-      const btn = document.getElementById('btn-step-1');
-      btn.disabled = true;
-      btn.innerText = 'Отправка запроса...';
 
       try {
-        localStorage.setItem('himigram_api_id', apiId);
-        localStorage.setItem('himigram_api_hash', apiHash);
+        client = new TelegramClient(new StringSession(''), API_ID, API_HASH, {
+          connectionRetries: 5
+        });
 
-        client = new TelegramClient(new StringSession(''), parseInt(apiId), apiHash, { connectionRetries: 5 });
         await client.connect();
+        statusEl.innerText = "Ожидание сканирования...";
 
-        const res = await client.sendCode({ apiId: parseInt(apiId), apiHash }, phone);
-        phoneCodeHash = res.phoneCodeHash;
+        // Запуск встроенной функции GramJS для QR-авторизации
+        await client.signInWithQrCode({
+          apiId: API_ID,
+          apiHash: API_HASH,
+        }, {
+          qrCode: async (qr) => {
+            qrContainer.innerHTML = ''; // Убираем спиннер
 
-        document.getElementById('step-1').classList.remove('active');
-        document.getElementById('step-2').classList.add('active');
-        document.getElementById('auth-subtext').innerText = `Код отправлен в приложение Telegram на ${phone}`;
+            // Токен для QR-кода от Telegram (tg://login?token=...)
+            const qrUrl = `tg://login?token=${qr.token.toString("base64url")}`;
+
+            if (!qrCodeObj) {
+              qrCodeObj = new QRCode(qrContainer, {
+                text: qrUrl,
+                width: 196,
+                height: 196,
+                correctLevel: QRCode.CorrectLevel.L
+              });
+            } else {
+              qrCodeObj.clear();
+              qrCodeObj.makeCode(qrUrl);
+            }
+          },
+          password: async (hint) => {
+            // Если включена 2FA (Облачный пароль)
+            return prompt(`Введите ваш облачный пароль 2FA (Подсказка: ${hint}):`);
+          }
+        });
+
+        // Успешный вход
+        statusEl.innerText = "Авторизация прошла успешно!";
+        statusEl.style.color = "#22c55e";
+        
+        // Сохраняем сессию
+        localStorage.setItem('himigram_session', client.session.save());
+        
+        setTimeout(() => {
+          alert("Успешный вход! Сессия сохранена.");
+          // window.location.href = 'chat.html';
+        }, 1000);
+
       } catch (err) {
-        showError('Ошибка: ' + (err.errorMessage || err.message));
-        btn.disabled = false;
-        btn.innerText = 'Отправить код';
+        console.error(err);
+        statusEl.innerText = "Ошибка входа: " + (err.errorMessage || err.message);
+        statusEl.style.color = "var(--danger)";
       }
     }
 
-    async function submitCode() {
-      clearError();
-      const phone = document.getElementById('phone').value.trim();
-      const code = document.getElementById('phone-code').value.trim();
-
-      if (!code) return showError('Введите полученный код!');
-
-      const btn = document.getElementById('btn-step-2');
-      btn.disabled = true;
-      btn.innerText = 'Проверка...';
-
-      try {
-        await client.invoke(new Api.auth.SignIn({
-          phoneNumber: phone,
-          phoneCodeHash: phoneCodeHash,
-          phoneCode: code
-        }));
-
-        saveSessionAndFinish();
-      } catch (err) {
-        if (err.errorMessage === 'SESSION_PASSWORD_NEEDED') {
-          document.getElementById('step-2').classList.remove('active');
-          document.getElementById('step-3').classList.add('active');
-          document.getElementById('auth-subtext').innerText = 'Введите пароль 2FA (Облачный пароль)';
-        } else {
-          showError('Неверный код или ошибка: ' + (err.errorMessage || err.message));
-          btn.disabled = false;
-          btn.innerText = 'Войти';
-        }
-      }
+    function usePhoneAuth() {
+      alert("Переход на форму входа по номеру телефона...");
     }
 
-    async function submit2FA() {
-      clearError();
-      const password = document.getElementById('password-2fa').value.trim();
-      if (!password) return showError('Введите пароль!');
-
-      const btn = document.getElementById('btn-step-3');
-      btn.disabled = true;
-
-      try {
-        await client.signInWithPassword({ password });
-        saveSessionAndFinish();
-      } catch (err) {
-        showError('Неверный пароль: ' + (err.errorMessage || err.message));
-        btn.disabled = false;
-      }
-    }
-
-    function saveSessionAndFinish() {
-      localStorage.setItem('himigram_session', client.session.save());
-      hideAuthScreen();
-      onSuccessLogin();
-    }
-
-    function hideAuthScreen() {
-      const auth = document.getElementById('auth-screen');
-      auth.style.opacity = '0';
-      auth.style.visibility = 'hidden';
-    }
-
-    function onSuccessLogin() {
-      document.getElementById('status-badge').innerText = 'Online';
-      document.getElementById('status-badge').style.color = '#22c55e';
-      loadDialogs();
-      listenMessages();
-    }
-
-    async function loadDialogs() {
-      const dialogs = await client.getDialogs({});
-      const listEl = document.getElementById('dialogs-list');
-      listEl.innerHTML = '';
-
-      dialogs.forEach(d => {
-        const item = document.createElement('div');
-        item.className = 'dialog-item';
-        item.innerHTML = `<span>${d.title || d.name || 'Чат'}</span>`;
-        item.onclick = () => openChat(d);
-        listEl.appendChild(item);
-      });
-    }
-
-    async function openChat(dialog) {
-      activePeer = dialog.entity;
-      document.getElementById('chat-header').innerText = dialog.title || dialog.name;
-      document.getElementById('message-input').disabled = false;
-      document.getElementById('send-btn').disabled = false;
-
-      const messages = await client.getMessages(activePeer, { limit: 30 });
-      const msgsEl = document.getElementById('messages');
-      msgsEl.innerHTML = '';
-
-      for (let msg of messages.reverse()) {
-        renderMessage(msg);
-      }
-
-      if (!document.getElementById('ghost-mode').checked) {
-        await client.readHistory(activePeer);
-      }
-    }
-
-    function renderMessage(msg) {
-      const msgsEl = document.getElementById('messages');
-      const msgDiv = document.createElement('div');
-      msgDiv.className = `msg ${msg.out ? 'out' : 'in'}`;
-      msgDiv.innerText = msg.message || '[Медиафайл]';
-      msgsEl.appendChild(msgDiv);
-      msgsEl.scrollTop = msgsEl.scrollHeight;
-    }
-
-    async function sendMessage() {
-      const input = document.getElementById('message-input');
-      const text = input.value.trim();
-      if (!text || !activePeer) return;
-
-      const msg = await client.sendMessage(activePeer, { message: text });
-      renderMessage(msg);
-      input.value = '';
-    }
-
-    function switchTab(tab) {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
-      if (tab === 'chats') {
-        document.querySelectorAll('.tab-btn')[0].classList.add('active');
-        document.getElementById('tab-chats').classList.add('active');
-      } else {
-        document.querySelectorAll('.tab-btn')[1].classList.add('active');
-        document.getElementById('tab-settings').classList.add('active');
-      }
-    }
-
-    function listenMessages() {
-      client.addEventHandler(async (event) => {
-        const msg = event.message;
-        if (document.getElementById('auto-reply').checked && !msg.out && msg.isPrivate) {
-          await client.sendMessage(msg.senderId, { message: document.getElementById('auto-reply-text').value });
-        }
-        if (activePeer && msg.peerId && msg.peerId.userId === activePeer.id) {
-          renderMessage(msg);
-        }
-      });
-    }
-
-    function logout() {
-      localStorage.clear();
-      location.reload();
-    }
+    window.addEventListener('DOMContentLoaded', initQRAuth);
   </script>
 </body>
 </html>
