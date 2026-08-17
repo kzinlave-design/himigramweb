@@ -40,7 +40,7 @@
       100% { box-shadow: 0 0 0 0 rgba(82, 136, 193, 0); }
     }
 
-    /* Экран Авторизации */
+    /* Экран Входа */
     #auth-screen {
       position: fixed; inset: 0; background: var(--bg-main); z-index: 999;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -141,21 +141,21 @@
       <p id="auth-subtext">Введите данные вашего Telegram приложения</p>
       <div id="auth-error" class="error-msg"></div>
 
-      <!-- Шаг 1: Ввод ключей и телефона -->
+      <!-- Шаг 1 -->
       <div id="step-1" class="auth-step active">
-        <input type="text" id="api-id" class="auth-input" placeholder="API ID (например: 12345678)">
+        <input type="text" id="api-id" class="auth-input" placeholder="API ID">
         <input type="text" id="api-hash" class="auth-input" placeholder="API Hash">
         <input type="text" id="phone" class="auth-input" placeholder="Номер телефона (+7...)">
         <button class="btn-primary" id="btn-step-1" onclick="requestCode()">Отправить код</button>
       </div>
 
-      <!-- Шаг 2: Ввод кода подтверждения из сообщения Telegram -->
+      <!-- Шаг 2 -->
       <div id="step-2" class="auth-step">
         <input type="text" id="phone-code" class="auth-input" placeholder="Код из приложения Telegram">
         <button class="btn-primary" id="btn-step-2" onclick="submitCode()">Войти</button>
       </div>
 
-      <!-- Шаг 3: Ввод Облачного Пароля (если включена 2FA) -->
+      <!-- Шаг 3 (2FA) -->
       <div id="step-3" class="auth-step">
         <input type="password" id="password-2fa" class="auth-input" placeholder="Облачный пароль (2FA)">
         <button class="btn-primary" id="btn-step-3" onclick="submit2FA()">Подтвердить пароль</button>
@@ -209,14 +209,12 @@
   </div>
 
   <script>
-    const { TelegramClient } = window.telegram;
-    const { StringSession } = window.telegram.sessions;
+    const StringSession = window.telegram.sessions.StringSession;
 
     let client = null;
     let activePeer = null;
     let phoneCodeHash = null;
 
-    // Загрузка официальной анимации самолетика
     window.addEventListener('DOMContentLoaded', () => {
       lottie.loadAnimation({
         container: document.getElementById('lottie-plane'),
@@ -247,7 +245,7 @@
 
       if (apiId && apiHash && savedSession) {
         try {
-          client = new TelegramClient(new StringSession(savedSession), parseInt(apiId), apiHash, { connectionRetries: 5 });
+          client = new window.telegram.TelegramClient(new StringSession(savedSession), parseInt(apiId), apiHash, { connectionRetries: 5 });
           await client.connect();
           if (await client.checkAuthorization()) {
             finishAuthAnimation();
@@ -259,7 +257,6 @@
       }
     }
 
-    // Запрос кода (Шаг 1)
     async function requestCode() {
       clearError();
       const apiId = document.getElementById('api-id').value.trim();
@@ -276,7 +273,7 @@
         localStorage.setItem('himigram_api_id', apiId);
         localStorage.setItem('himigram_api_hash', apiHash);
 
-        client = new TelegramClient(new StringSession(''), parseInt(apiId), apiHash, { connectionRetries: 5 });
+        client = new window.telegram.TelegramClient(new StringSession(''), parseInt(apiId), apiHash, { connectionRetries: 5 });
         await client.connect();
 
         const res = await client.sendCode({ apiId: parseInt(apiId), apiHash }, phone);
@@ -284,7 +281,7 @@
 
         document.getElementById('step-1').classList.remove('active');
         document.getElementById('step-2').classList.add('active');
-        document.getElementById('auth-subtext').innerText = `Код отправлен в ваше приложение Telegram на номер ${phone}`;
+        document.getElementById('auth-subtext').innerText = `Код отправлен в приложение Telegram на ${phone}`;
       } catch (err) {
         showError('Ошибка: ' + (err.errorMessage || err.message));
         btn.disabled = false;
@@ -292,7 +289,6 @@
       }
     }
 
-    // Ввод кода подтверждения (Шаг 2)
     async function submitCode() {
       clearError();
       const phone = document.getElementById('phone').value.trim();
@@ -316,7 +312,7 @@
         if (err.errorMessage === 'SESSION_PASSWORD_NEEDED') {
           document.getElementById('step-2').classList.remove('active');
           document.getElementById('step-3').classList.add('active');
-          document.getElementById('auth-subtext').innerText = 'Введите ваш пароль 2FA (Облачный пароль)';
+          document.getElementById('auth-subtext').innerText = 'Введите пароль 2FA (Облачный пароль)';
         } else {
           showError('Неверный код или ошибка: ' + (err.errorMessage || err.message));
           btn.disabled = false;
@@ -325,7 +321,6 @@
       }
     }
 
-    // Ввод пароля 2FA (Шаг 3)
     async function submit2FA() {
       clearError();
       const password = document.getElementById('password-2fa').value.trim();
