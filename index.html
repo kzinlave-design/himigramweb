@@ -12,6 +12,7 @@
       --bg-msg-in: #182533;
       --bg-msg-out: #2b5278;
       --accent: #5288c1;
+      --accent-hover: #649ad5;
       --text: #f5f5f5;
       --text-muted: #7f91a4;
       --border: #242f3d;
@@ -20,86 +21,143 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: var(--bg-main); color: var(--text); height: 100vh; overflow: hidden; display: flex; }
 
-    /* Окно Авторизации (Telegram Style) */
+    /* --- Анимации --- */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes flyPaperPlane {
+      0% { transform: scale(1) translate(0, 0) rotate(0deg); opacity: 1; }
+      40% { transform: scale(1.1) translate(-10px, 10px) rotate(-10deg); opacity: 1; }
+      100% { transform: scale(0.3) translate(300px, -300px) rotate(25deg); opacity: 0; }
+    }
+
+    @keyframes pulseGlow {
+      0% { box-shadow: 0 0 0 0 rgba(82, 136, 193, 0.4); }
+      70% { box-shadow: 0 0 0 15px rgba(82, 136, 193, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(82, 136, 193, 0); }
+    }
+
+    /* Экран Авторизации */
     #auth-screen {
       position: fixed; inset: 0; background: var(--bg-main); z-index: 999;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
+      transition: opacity 0.5s ease, visibility 0.5s ease;
     }
+
     .auth-card {
-      background: var(--bg-sidebar); width: 380px; padding: 40px 30px; border-radius: 12px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.4); text-align: center; border: 1px solid var(--border);
+      background: var(--bg-sidebar); width: 380px; padding: 40px 30px; border-radius: 16px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.5); text-align: center; border: 1px solid var(--border);
+      animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .auth-card img { width: 80px; margin-bottom: 16px; }
-    .auth-card h2 { font-size: 20px; margin-bottom: 8px; }
+
+    /* Контейнер под официальный Lottie-самолетик */
+    #lottie-plane {
+      width: 120px; height: 120px; margin: 0 auto 10px auto;
+      transition: transform 0.3s ease; cursor: pointer;
+    }
+    #lottie-plane.flying {
+      animation: flyPaperPlane 0.8s forwards ease-in-out;
+    }
+
+    .auth-card h2 { font-size: 22px; margin-bottom: 8px; font-weight: 600; }
     .auth-card p { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.4; }
+
     .auth-input {
-      width: 100%; padding: 12px; background: var(--bg-main); border: 1px solid var(--border);
-      border-radius: 8px; color: #fff; margin-bottom: 12px; outline: none; font-size: 14px;
+      width: 100%; padding: 12px 14px; background: var(--bg-main); border: 1px solid var(--border);
+      border-radius: 10px; color: #fff; margin-bottom: 12px; outline: none; font-size: 14px;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
-    .auth-input:focus { border-color: var(--accent); }
+    .auth-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(82, 136, 193, 0.2); }
+
     .btn-primary {
       width: 100%; padding: 12px; background: var(--accent); color: white; border: none;
-      border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 14px;
+      border-radius: 10px; font-weight: bold; cursor: pointer; transition: background 0.2s, transform 0.1s; font-size: 14px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
     }
-    .btn-primary:hover { opacity: 0.9; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:active { transform: scale(0.98); }
 
     /* Главный Интерфейс */
-    #app { display: flex; width: 100vw; height: 100vh; }
-    
+    #app { display: flex; width: 100vw; height: 100vh; opacity: 1; transition: opacity 0.3s ease; }
+
     /* Sidebar */
     #sidebar { width: 320px; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
-    .sidebar-header { padding: 12px 16px; background: var(--bg-sidebar); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
-    .nav-tabs { display: flex; background: var(--bg-sidebar); border-bottom: 1px solid var(--border); }
-    .tab-btn { flex: 1; padding: 10px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-weight: 600; font-size: 13px; }
-    .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+    .sidebar-header { padding: 14px 16px; background: var(--bg-sidebar); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
     
+    .nav-tabs { display: flex; background: var(--bg-sidebar); border-bottom: 1px solid var(--border); }
+    .tab-btn { flex: 1; padding: 12px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-weight: 600; font-size: 13px; transition: color 0.2s; position: relative; }
+    .tab-btn.active { color: var(--accent); }
+    .tab-btn.active::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: var(--accent);
+      animation: fadeIn 0.2s ease;
+    }
+
     #dialogs-list { flex: 1; overflow-y: auto; }
-    .dialog-item { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.03); cursor: pointer; display: flex; justify-content: space-between; }
+    .dialog-item {
+      padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.02); cursor: pointer;
+      display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;
+    }
     .dialog-item:hover { background: rgba(255,255,255,0.05); }
 
     /* Chat Area */
     #chat-container { flex: 1; display: flex; flex-direction: column; background: var(--bg-chat); }
     #chat-header { padding: 14px 20px; background: var(--bg-sidebar); border-bottom: 1px solid var(--border); font-weight: bold; }
-    
+
     #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
-    .msg { max-width: 65%; padding: 8px 12px; border-radius: 8px; font-size: 14px; line-height: 1.4; word-break: break-word; }
-    .msg.in { background: var(--bg-msg-in); align-self: flex-start; }
-    .msg.out { background: var(--bg-msg-out); align-self: flex-end; }
-    .msg img { max-width: 100%; border-radius: 6px; margin-top: 4px; }
+    .msg {
+      max-width: 65%; padding: 8px 12px; border-radius: 12px; font-size: 14px; line-height: 1.4;
+      word-break: break-word; animation: fadeIn 0.25s cubic-bezier(0, 0, 0.2, 1);
+    }
+    .msg.in { background: var(--bg-msg-in); align-self: flex-start; border-bottom-left-radius: 4px; }
+    .msg.out { background: var(--bg-msg-out); align-self: flex-end; border-bottom-right-radius: 4px; }
+    .msg img { max-width: 100%; border-radius: 8px; margin-top: 4px; }
     .msg audio { width: 220px; margin-top: 4px; }
-    
+
     /* Input Area */
     #input-area { padding: 12px 16px; background: var(--bg-sidebar); display: flex; gap: 10px; align-items: center; border-top: 1px solid var(--border); }
-    #message-input { flex: 1; padding: 10px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg-main); color: #fff; outline: none; }
-    .icon-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; padding: 6px; }
-    .icon-btn:hover { color: var(--accent); }
+    #message-input { flex: 1; padding: 10px 16px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg-main); color: #fff; outline: none; transition: border-color 0.2s; }
+    #message-input:focus { border-color: var(--accent); }
+    .icon-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; padding: 6px; transition: color 0.2s, transform 0.1s; }
+    .icon-btn:hover { color: var(--accent); transform: scale(1.1); }
+    .icon-btn:active { transform: scale(0.95); }
+
+    .recording { animation: pulseGlow 1.5s infinite; border-radius: 50%; color: #ef4444 !important; }
 
     /* Himigram Settings Tab */
-    .view-panel { padding: 16px; display: none; flex-direction: column; gap: 12px; }
+    .view-panel { padding: 16px; display: none; flex-direction: column; gap: 12px; animation: fadeIn 0.2s ease; }
     .view-panel.active { display: flex; }
-    .feature-card { background: var(--bg-main); padding: 12px; border-radius: 8px; border: 1px solid var(--border); }
+    .feature-card { background: var(--bg-main); padding: 14px; border-radius: 10px; border: 1px solid var(--border); }
     .feature-card h4 { color: var(--accent); margin-bottom: 6px; font-size: 14px; }
   </style>
 
+  <!-- Lottie Player для официальной векторной анимации Telegram -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+  <!-- GramJS CDN -->
   <script src="https://cdn.jsdelivr.net/npm/telegram@latest/browser/gramjs.js"></script>
 </head>
 <body>
 
-  <!-- Экран Входа (Telegram Auth Screen) -->
+  <!-- Экран Входа -->
   <div id="auth-screen">
     <div class="auth-card">
-      <img src="https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg" alt="TG">
+      <!-- Официальный Lottie-контейнер Telegram Paper Plane -->
+      <div id="lottie-plane"></div>
+
       <h2>Вход в Himigram</h2>
-      <p>Введите API ключи с my.telegram.org и телефон для подключения MTProto</p>
+      <p>Введите API ID, API Hash и номер телефона для авторизации</p>
       
       <input type="text" id="api-id" class="auth-input" placeholder="API ID">
       <input type="text" id="api-hash" class="auth-input" placeholder="API Hash">
       <input type="text" id="phone" class="auth-input" placeholder="+7XXXXXXXXXX">
-      <button class="btn-primary" onclick="sendCode()">Продолжить</button>
+      <button class="btn-primary" id="send-code-btn" onclick="sendCode()">
+        <span id="btn-text">Продолжить</span>
+      </button>
 
-      <div id="code-block" style="display:none; margin-top: 12px;">
+      <div id="code-block" style="display:none; margin-top: 12px; animation: fadeIn 0.3s ease;">
         <input type="text" id="phone-code" class="auth-input" placeholder="Код из Telegram">
-        <button class="btn-primary" onclick="login()">Войти</button>
+        <button class="btn-primary" onclick="login()">Войти в аккаунт</button>
       </div>
     </div>
   </div>
@@ -118,12 +176,10 @@
         <button class="tab-btn" onclick="switchTab('settings')">Himigram</button>
       </div>
 
-      <!-- Вкладка Чаты -->
       <div id="tab-chats" class="view-panel active" style="padding:0;">
         <div id="dialogs-list"></div>
       </div>
 
-      <!-- Вкладка Настройки Himigram -->
       <div id="tab-settings" class="view-panel">
         <h3>⚡ Himigram Features</h3>
         <div class="feature-card">
@@ -133,7 +189,7 @@
         <div class="feature-card">
           <h4>Автоответчик</h4>
           <label><input type="checkbox" id="auto-reply"> Включить автоответ</label>
-          <input type="text" id="auto-reply-text" class="auth-input" value="Отвечу позже (Himigram Web)" style="margin-top:6px;">
+          <input type="text" id="auto-reply-text" class="auth-input" value="Отвечу позже (Sent via Himigram)" style="margin-top:6px;">
         </div>
         <button class="btn-primary" onclick="logout()" style="background:#ef4444;">Выйти из аккаунта</button>
       </div>
@@ -145,13 +201,11 @@
       <div id="messages"></div>
       
       <div id="input-area">
-        <!-- Кнопка файла (.exe, .png, .zip) -->
         <input type="file" id="file-input" style="display:none;" onchange="sendFile(this.files[0])">
         <button class="icon-btn" onclick="document.getElementById('file-input').click()">📎</button>
         
         <input type="text" id="message-input" placeholder="Напишите сообщение..." disabled onkeypress="if(event.key==='Enter') sendMessage()">
         
-        <!-- Кнопка Записи Голосового -->
         <button class="icon-btn" id="record-btn" onclick="toggleRecord()">🎙️</button>
         <button class="icon-btn" id="send-btn" onclick="sendMessage()" disabled>➔</button>
       </div>
@@ -166,9 +220,23 @@
     let activePeer = null;
     let mediaRecorder = null;
     let audioChunks = [];
+    let planeAnimation = null;
 
-    // Восстановление сессии при открытии
-    window.addEventListener('DOMContentLoaded', async () => {
+    // Инициализация официального Lottie-самолетика Telegram
+    window.addEventListener('DOMContentLoaded', () => {
+      planeAnimation = lottie.loadAnimation({
+        container: document.getElementById('lottie-plane'),
+        renderer: 'svg',
+        loop: true,
+        autoplay: true,
+        // Официальный JSON-анимация самолетика Telegram
+        path: 'https://assets2.lottiefiles.com/packages/lf20_TgA2fC.json'
+      });
+
+      checkSavedSession();
+    });
+
+    async function checkSavedSession() {
       const savedApiId = localStorage.getItem('himigram_api_id');
       const savedApiHash = localStorage.getItem('himigram_api_hash');
       const savedSession = localStorage.getItem('himigram_session') || '';
@@ -178,12 +246,23 @@
           client = new TelegramClient(new StringSession(savedSession), parseInt(savedApiId), savedApiHash, { connectionRetries: 5 });
           await client.connect();
           if (await client.checkAuthorization()) {
-            document.getElementById('auth-screen').style.display = 'none';
+            hideAuthScreen();
             onSuccessLogin();
           }
         } catch (e) { console.error("Ошибка авто-входа", e); }
       }
-    });
+    }
+
+    function hideAuthScreen() {
+      const plane = document.getElementById('lottie-plane');
+      plane.classList.add('flying'); // Запуск анимации улетающего самолетика
+
+      setTimeout(() => {
+        const auth = document.getElementById('auth-screen');
+        auth.style.opacity = '0';
+        auth.style.visibility = 'hidden';
+      }, 500);
+    }
 
     function switchTab(tab) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -204,13 +283,17 @@
 
       if (!apiId || !apiHash || !phone) return alert('Заполните все поля!');
 
+      document.getElementById('btn-text').innerText = 'Подключение...';
+
       localStorage.setItem('himigram_api_id', apiId);
       localStorage.setItem('himigram_api_hash', apiHash);
 
       client = new TelegramClient(new StringSession(''), parseInt(apiId), apiHash, { connectionRetries: 5 });
       await client.connect();
+
       window.phoneAuth = await client.sendCode({ apiId: parseInt(apiId), apiHash }, phone);
       document.getElementById('code-block').style.display = 'block';
+      document.getElementById('btn-text').innerText = 'Код отправлен';
     }
 
     async function login() {
@@ -219,7 +302,8 @@
 
       await client.start({ phoneNumber: async () => phone, phoneCode: async () => code });
       localStorage.setItem('himigram_session', client.session.save());
-      document.getElementById('auth-screen').style.display = 'none';
+
+      hideAuthScreen();
       onSuccessLogin();
     }
 
@@ -270,7 +354,6 @@
       
       let html = msg.message || '';
 
-      // Рендер файлов / картинок / голосовых
       if (msg.media) {
         if (msg.media.photo) {
           const buffer = await client.downloadMedia(msg.media);
@@ -283,7 +366,7 @@
           if (msg.media.document.mimeType.includes('audio')) {
             html += `<br><audio controls src="${url}"></audio>`;
           } else {
-            html += `<br><a href="${url}" download="file" style="color:#38bdf8;">📁 Скачать файл (${msg.media.document.attributes[0]?.fileName || 'файл'})</a>`;
+            html += `<br><a href="${url}" download="file" style="color:#38bdf8; text-decoration:none;">📁 Скачать файл</a>`;
           }
         }
       }
@@ -303,7 +386,6 @@
       input.value = '';
     }
 
-    // Отправка любых файлов (.exe, .zip, .png и т.д.)
     async function sendFile(file) {
       if (!file || !activePeer) return;
       const toUpload = new CustomFile(file.name, file.size, "", file);
@@ -312,7 +394,6 @@
       renderMessage(msg);
     }
 
-    // Запись и отправка Голосовых сообщений
     async function toggleRecord() {
       const btn = document.getElementById('record-btn');
       if (!mediaRecorder || mediaRecorder.state === 'inactive') {
@@ -328,10 +409,10 @@
         };
 
         mediaRecorder.start();
-        btn.style.color = '#ef4444';
+        btn.classList.add('recording');
       } else {
         mediaRecorder.stop();
-        btn.style.color = 'var(--text-muted)';
+        btn.classList.remove('recording');
       }
     }
 
