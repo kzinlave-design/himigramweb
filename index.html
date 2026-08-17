@@ -3,110 +3,158 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Himigram Web</title>
+  <title>Himigram Desktop</title>
   <style>
+    :root {
+      --bg-main: #0f1821;
+      --bg-sidebar: #17212b;
+      --bg-chat: #0e1621;
+      --bg-msg-in: #182533;
+      --bg-msg-out: #2b5278;
+      --accent: #5288c1;
+      --text: #f5f5f5;
+      --text-muted: #7f91a4;
+      --border: #242f3d;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { display: flex; height: 100vh; background: #0f172a; color: #f8fafc; }
+    body { background: var(--bg-main); color: var(--text); height: 100vh; overflow: hidden; display: flex; }
+
+    /* Окно Авторизации (Telegram Style) */
+    #auth-screen {
+      position: fixed; inset: 0; background: var(--bg-main); z-index: 999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .auth-card {
+      background: var(--bg-sidebar); width: 380px; padding: 40px 30px; border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4); text-align: center; border: 1px solid var(--border);
+    }
+    .auth-card img { width: 80px; margin-bottom: 16px; }
+    .auth-card h2 { font-size: 20px; margin-bottom: 8px; }
+    .auth-card p { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.4; }
+    .auth-input {
+      width: 100%; padding: 12px; background: var(--bg-main); border: 1px solid var(--border);
+      border-radius: 8px; color: #fff; margin-bottom: 12px; outline: none; font-size: 14px;
+    }
+    .auth-input:focus { border-color: var(--accent); }
+    .btn-primary {
+      width: 100%; padding: 12px; background: var(--accent); color: white; border: none;
+      border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 14px;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+
+    /* Главный Интерфейс */
+    #app { display: flex; width: 100vw; height: 100vh; }
     
     /* Sidebar */
-    #sidebar { width: 320px; background: #1e293b; border-right: 1px solid #334155; display: flex; flex-direction: column; }
-    .header { padding: 16px; background: #0f172a; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
-    .nav-tabs { display: flex; background: #1e293b; border-bottom: 1px solid #334155; }
-    .tab-btn { flex: 1; padding: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; font-weight: 600; }
-    .tab-btn.active { color: #38bdf8; border-bottom: 2px solid #38bdf8; }
+    #sidebar { width: 320px; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+    .sidebar-header { padding: 12px 16px; background: var(--bg-sidebar); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+    .nav-tabs { display: flex; background: var(--bg-sidebar); border-bottom: 1px solid var(--border); }
+    .tab-btn { flex: 1; padding: 10px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-weight: 600; font-size: 13px; }
+    .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+    
     #dialogs-list { flex: 1; overflow-y: auto; }
-    .dialog-item { padding: 12px 16px; border-bottom: 1px solid #334155; cursor: pointer; transition: 0.2s; }
-    .dialog-item:hover { background: #334155; }
+    .dialog-item { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.03); cursor: pointer; display: flex; justify-content: space-between; }
+    .dialog-item:hover { background: rgba(255,255,255,0.05); }
 
     /* Chat Area */
-    #chat-container { flex: 1; display: flex; flex-direction: column; background: #0f172a; }
-    #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-    .msg { max-width: 60%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.4; }
-    .msg.in { background: #1e293b; align-self: flex-start; }
-    .msg.out { background: #0284c7; align-self: flex-end; }
+    #chat-container { flex: 1; display: flex; flex-direction: column; background: var(--bg-chat); }
+    #chat-header { padding: 14px 20px; background: var(--bg-sidebar); border-bottom: 1px solid var(--border); font-weight: bold; }
     
-    #input-area { padding: 16px; background: #1e293b; display: flex; gap: 10px; }
-    #message-input { flex: 1; padding: 10px 14px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #fff; outline: none; }
-    #send-btn { padding: 10px 20px; background: #0284c7; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+    #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+    .msg { max-width: 65%; padding: 8px 12px; border-radius: 8px; font-size: 14px; line-height: 1.4; word-break: break-word; }
+    .msg.in { background: var(--bg-msg-in); align-self: flex-start; }
+    .msg.out { background: var(--bg-msg-out); align-self: flex-end; }
+    .msg img { max-width: 100%; border-radius: 6px; margin-top: 4px; }
+    .msg audio { width: 220px; margin-top: 4px; }
+    
+    /* Input Area */
+    #input-area { padding: 12px 16px; background: var(--bg-sidebar); display: flex; gap: 10px; align-items: center; border-top: 1px solid var(--border); }
+    #message-input { flex: 1; padding: 10px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg-main); color: #fff; outline: none; }
+    .icon-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; padding: 6px; }
+    .icon-btn:hover { color: var(--accent); }
 
-    /* Views & Forms */
-    .view-panel { padding: 20px; display: none; flex-direction: column; gap: 12px; }
+    /* Himigram Settings Tab */
+    .view-panel { padding: 16px; display: none; flex-direction: column; gap: 12px; }
     .view-panel.active { display: flex; }
-    input[type="text"], input[type="password"] { padding: 10px; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #fff; width: 100%; }
-    button.action-btn { padding: 10px; background: #38bdf8; color: #0f172a; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
-    button.danger-btn { padding: 10px; background: #ef4444; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
-    
-    /* Features UI */
-    .feature-card { background: #1e293b; padding: 14px; border-radius: 8px; border: 1px solid #334155; }
-    .feature-card h4 { margin-bottom: 6px; color: #38bdf8; }
+    .feature-card { background: var(--bg-main); padding: 12px; border-radius: 8px; border: 1px solid var(--border); }
+    .feature-card h4 { color: var(--accent); margin-bottom: 6px; font-size: 14px; }
   </style>
 
-  <!-- GramJS CDN -->
   <script src="https://cdn.jsdelivr.net/npm/telegram@latest/browser/gramjs.js"></script>
 </head>
 <body>
 
-  <!-- Sidebar -->
-  <div id="sidebar">
-    <div class="header">
-      <span>Himigram Web</span>
-      <span id="status-badge" style="font-size: 12px; color: #ef4444;">• Offline</span>
-    </div>
-
-    <div class="nav-tabs">
-      <button class="tab-btn active" onclick="switchTab('chats')">Чаты</button>
-      <button class="tab-btn" onclick="switchTab('settings')">Himigram</button>
-    </div>
-
-    <!-- Вкладка 1: Чаты / Авторизация -->
-    <div id="tab-chats" class="view-panel active">
-      <div id="auth-block" style="display: flex; flex-direction: column; gap: 8px;">
-        <h4>Вход в Telegram (MTProto)</h4>
-        <p style="font-size: 12px; color: #94a3b8;">Данные API сохраняются только в вашем браузере (localStorage).</p>
-        
-        <input type="text" id="api-id" placeholder="API ID (с my.telegram.org)">
-        <input type="text" id="api-hash" placeholder="API Hash">
-        <input type="text" id="phone" placeholder="+7XXXXXXXXXX">
-        <button class="action-btn" onclick="sendCode()">Отправить код</button>
-        
-        <input type="text" id="phone-code" placeholder="Код из Telegram" style="display:none;">
-        <button id="login-btn" class="action-btn" onclick="login()" style="display:none;">Войти в аккаунт</button>
-      </div>
-
-      <div id="dialogs-list"></div>
-    </div>
-
-    <!-- Вкладка 2: Настройки Himigram -->
-    <div id="tab-settings" class="view-panel">
-      <h3>⚡ Himigram Features</h3>
+  <!-- Экран Входа (Telegram Auth Screen) -->
+  <div id="auth-screen">
+    <div class="auth-card">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg" alt="TG">
+      <h2>Вход в Himigram</h2>
+      <p>Введите API ключи с my.telegram.org и телефон для подключения MTProto</p>
       
-      <div class="feature-card">
-        <h4>Ghost Mode (Призрак)</h4>
-        <label><input type="checkbox" id="ghost-mode"> Не помечать сообщения прочитанными</label>
-      </div>
+      <input type="text" id="api-id" class="auth-input" placeholder="API ID">
+      <input type="text" id="api-hash" class="auth-input" placeholder="API Hash">
+      <input type="text" id="phone" class="auth-input" placeholder="+7XXXXXXXXXX">
+      <button class="btn-primary" onclick="sendCode()">Продолжить</button>
 
-      <div class="feature-card">
-        <h4>Auto-Answering (Автоответчик)</h4>
-        <label><input type="checkbox" id="auto-reply"> Включить автоответчик</label>
-        <input type="text" id="auto-reply-text" value="Привет! Отвечу позже (Sent via Himigram)" style="margin-top: 8px;">
-      </div>
-
-      <div class="feature-card">
-        <h4>Управление аккаунтом</h4>
-        <button class="danger-btn" onclick="logout()" style="width: 100%; margin-top: 6px;">Выйти из аккаунта (Clear LocalStorage)</button>
+      <div id="code-block" style="display:none; margin-top: 12px;">
+        <input type="text" id="phone-code" class="auth-input" placeholder="Код из Telegram">
+        <button class="btn-primary" onclick="login()">Войти</button>
       </div>
     </div>
   </div>
 
-  <!-- Чат -->
-  <div id="chat-container">
-    <div id="messages">
-      <div style="text-align: center; color: #64748b; margin-top: 50px;">Авторизуйтесь или выберите чат</div>
+  <!-- Главное Окно -->
+  <div id="app">
+    <!-- Sidebar -->
+    <div id="sidebar">
+      <div class="sidebar-header">
+        <span>Himigram Desktop</span>
+        <span id="status-badge" style="font-size: 11px; color: #ef4444;">Offline</span>
+      </div>
+
+      <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('chats')">Чаты</button>
+        <button class="tab-btn" onclick="switchTab('settings')">Himigram</button>
+      </div>
+
+      <!-- Вкладка Чаты -->
+      <div id="tab-chats" class="view-panel active" style="padding:0;">
+        <div id="dialogs-list"></div>
+      </div>
+
+      <!-- Вкладка Настройки Himigram -->
+      <div id="tab-settings" class="view-panel">
+        <h3>⚡ Himigram Features</h3>
+        <div class="feature-card">
+          <h4>Ghost Mode</h4>
+          <label><input type="checkbox" id="ghost-mode"> Не отправлять «Прочитано»</label>
+        </div>
+        <div class="feature-card">
+          <h4>Автоответчик</h4>
+          <label><input type="checkbox" id="auto-reply"> Включить автоответ</label>
+          <input type="text" id="auto-reply-text" class="auth-input" value="Отвечу позже (Himigram Web)" style="margin-top:6px;">
+        </div>
+        <button class="btn-primary" onclick="logout()" style="background:#ef4444;">Выйти из аккаунта</button>
+      </div>
     </div>
-    
-    <div id="input-area">
-      <input type="text" id="message-input" placeholder="Напишите сообщение..." disabled>
-      <button id="send-btn" onclick="sendMessage()" disabled>Отправить</button>
+
+    <!-- Чат -->
+    <div id="chat-container">
+      <div id="chat-header">Выберите чат</div>
+      <div id="messages"></div>
+      
+      <div id="input-area">
+        <!-- Кнопка файла (.exe, .png, .zip) -->
+        <input type="file" id="file-input" style="display:none;" onchange="sendFile(this.files[0])">
+        <button class="icon-btn" onclick="document.getElementById('file-input').click()">📎</button>
+        
+        <input type="text" id="message-input" placeholder="Напишите сообщение..." disabled onkeypress="if(event.key==='Enter') sendMessage()">
+        
+        <!-- Кнопка Записи Голосового -->
+        <button class="icon-btn" id="record-btn" onclick="toggleRecord()">🎙️</button>
+        <button class="icon-btn" id="send-btn" onclick="sendMessage()" disabled>➔</button>
+      </div>
     </div>
   </div>
 
@@ -116,37 +164,30 @@
 
     let client = null;
     let activePeer = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
 
-    // Авто-загрузка учетных данных и сессии при открытии страницы
+    // Восстановление сессии при открытии
     window.addEventListener('DOMContentLoaded', async () => {
       const savedApiId = localStorage.getItem('himigram_api_id');
       const savedApiHash = localStorage.getItem('himigram_api_hash');
       const savedSession = localStorage.getItem('himigram_session') || '';
 
-      if (savedApiId) document.getElementById('api-id').value = savedApiId;
-      if (savedApiHash) document.getElementById('api-hash').value = savedApiHash;
-
-      // Если есть сохраненная сессия — пробуем войти автоматически
       if (savedApiId && savedApiHash && savedSession) {
         try {
-          client = new TelegramClient(new StringSession(savedSession), parseInt(savedApiId), savedApiHash, {
-            connectionRetries: 5,
-          });
+          client = new TelegramClient(new StringSession(savedSession), parseInt(savedApiId), savedApiHash, { connectionRetries: 5 });
           await client.connect();
-          
           if (await client.checkAuthorization()) {
+            document.getElementById('auth-screen').style.display = 'none';
             onSuccessLogin();
           }
-        } catch (e) {
-          console.error("Ошибка авто-входа:", e);
-        }
+        } catch (e) { console.error("Ошибка авто-входа", e); }
       }
     });
 
     function switchTab(tab) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
-      
       if (tab === 'chats') {
         document.querySelectorAll('.tab-btn')[0].classList.add('active');
         document.getElementById('tab-chats').classList.add('active');
@@ -159,55 +200,32 @@
     async function sendCode() {
       const apiId = document.getElementById('api-id').value.trim();
       const apiHash = document.getElementById('api-hash').value.trim();
-      const phoneNumber = document.getElementById('phone').value.trim();
+      const phone = document.getElementById('phone').value.trim();
 
-      if (!apiId || !apiHash || !phoneNumber) {
-        alert('Заполните API ID, API Hash и Номер телефона!');
-        return;
-      }
+      if (!apiId || !apiHash || !phone) return alert('Заполните все поля!');
 
-      // Сохраняем API ключи в LocalStorage
       localStorage.setItem('himigram_api_id', apiId);
       localStorage.setItem('himigram_api_hash', apiHash);
 
-      client = new TelegramClient(new StringSession(''), parseInt(apiId), apiHash, {
-        connectionRetries: 5,
-      });
-
+      client = new TelegramClient(new StringSession(''), parseInt(apiId), apiHash, { connectionRetries: 5 });
       await client.connect();
-      
-      window.phoneAuth = await client.sendCode({
-        apiId: parseInt(apiId),
-        apiHash: apiHash,
-      }, phoneNumber);
-
-      document.getElementById('phone-code').style.display = 'block';
-      document.getElementById('login-btn').style.display = 'block';
-      alert('Код отправлен в Telegram!');
+      window.phoneAuth = await client.sendCode({ apiId: parseInt(apiId), apiHash }, phone);
+      document.getElementById('code-block').style.display = 'block';
     }
 
     async function login() {
-      const phoneNumber = document.getElementById('phone').value.trim();
-      const phoneCode = document.getElementById('phone-code').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const code = document.getElementById('phone-code').value.trim();
 
-      await client.start({
-        phoneNumber: async () => phoneNumber,
-        phoneCode: async () => phoneCode,
-        onError: (err) => console.error(err),
-      });
-
-      // Сохраняем строку сессии в LocalStorage
-      const sessionString = client.session.save();
-      localStorage.setItem('himigram_session', sessionString);
-
+      await client.start({ phoneNumber: async () => phone, phoneCode: async () => code });
+      localStorage.setItem('himigram_session', client.session.save());
+      document.getElementById('auth-screen').style.display = 'none';
       onSuccessLogin();
     }
 
     function onSuccessLogin() {
-      document.getElementById('status-badge').innerText = '• Online';
+      document.getElementById('status-badge').innerText = 'Online';
       document.getElementById('status-badge').style.color = '#22c55e';
-      document.getElementById('auth-block').style.display = 'none';
-
       loadDialogs();
       listenMessages();
     }
@@ -217,33 +235,62 @@
       const listEl = document.getElementById('dialogs-list');
       listEl.innerHTML = '';
 
-      dialogs.forEach(dialog => {
+      dialogs.forEach(d => {
         const item = document.createElement('div');
         item.className = 'dialog-item';
-        item.innerText = dialog.title || dialog.name || 'Чат';
-        item.onclick = () => openChat(dialog);
+        item.innerHTML = `<span>${d.title || d.name || 'Чат'}</span>`;
+        item.onclick = () => openChat(d);
         listEl.appendChild(item);
       });
     }
 
     async function openChat(dialog) {
       activePeer = dialog.entity;
+      document.getElementById('chat-header').innerText = dialog.title || dialog.name;
       document.getElementById('message-input').disabled = false;
       document.getElementById('send-btn').disabled = false;
-      
-      const messages = await client.getMessages(activePeer, { limit: 20 });
+
+      const messages = await client.getMessages(activePeer, { limit: 30 });
       const msgsEl = document.getElementById('messages');
       msgsEl.innerHTML = '';
 
-      messages.reverse().forEach(msg => {
-        appendMessage(msg.message, msg.out);
-      });
+      for (let msg of messages.reverse()) {
+        await renderMessage(msg);
+      }
 
-      // Ghost Mode
-      const isGhost = document.getElementById('ghost-mode').checked;
-      if (!isGhost) {
+      if (!document.getElementById('ghost-mode').checked) {
         await client.readHistory(activePeer);
       }
+    }
+
+    async function renderMessage(msg) {
+      const msgsEl = document.getElementById('messages');
+      const msgDiv = document.createElement('div');
+      msgDiv.className = `msg ${msg.out ? 'out' : 'in'}`;
+      
+      let html = msg.message || '';
+
+      // Рендер файлов / картинок / голосовых
+      if (msg.media) {
+        if (msg.media.photo) {
+          const buffer = await client.downloadMedia(msg.media);
+          const blob = new Blob([buffer], { type: 'image/jpeg' });
+          html += `<br><img src="${URL.createObjectURL(blob)}">`;
+        } else if (msg.media.document) {
+          const buffer = await client.downloadMedia(msg.media);
+          const blob = new Blob([buffer]);
+          const url = URL.createObjectURL(blob);
+          if (msg.media.document.mimeType.includes('audio')) {
+            html += `<br><audio controls src="${url}"></audio>`;
+          } else {
+            html += `<br><a href="${url}" download="file" style="color:#38bdf8;">📁 Скачать файл (${msg.media.document.attributes[0]?.fileName || 'файл'})</a>`;
+          }
+        }
+      }
+
+      msgDiv.innerHTML = html;
+      msgsEl.appendChild(msgDiv);
+      msgsEl.scrollTop = msgsEl.scrollHeight;
     }
 
     async function sendMessage() {
@@ -251,47 +298,58 @@
       const text = input.value.trim();
       if (!text || !activePeer) return;
 
-      await client.sendMessage(activePeer, { message: text });
-      appendMessage(text, true);
+      const msg = await client.sendMessage(activePeer, { message: text });
+      renderMessage(msg);
       input.value = '';
     }
 
-    function appendMessage(text, isOut) {
-      const msgsEl = document.getElementById('messages');
-      const msgDiv = document.createElement('div');
-      msgDiv.className = `msg ${isOut ? 'out' : 'in'}`;
-      msgDiv.innerText = text;
-      msgsEl.appendChild(msgDiv);
-      msgsEl.scrollTop = msgsEl.scrollHeight;
+    // Отправка любых файлов (.exe, .zip, .png и т.д.)
+    async function sendFile(file) {
+      if (!file || !activePeer) return;
+      const toUpload = new CustomFile(file.name, file.size, "", file);
+      const uploaded = await client.uploadFile({ file: toUpload, workers: 1 });
+      const msg = await client.sendFile(activePeer, { file: uploaded });
+      renderMessage(msg);
+    }
+
+    // Запись и отправка Голосовых сообщений
+    async function toggleRecord() {
+      const btn = document.getElementById('record-btn');
+      if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunks, { type: 'audio/ogg' });
+          const file = new File([audioBlob], "voice.ogg", { type: "audio/ogg" });
+          sendFile(file);
+        };
+
+        mediaRecorder.start();
+        btn.style.color = '#ef4444';
+      } else {
+        mediaRecorder.stop();
+        btn.style.color = 'var(--text-muted)';
+      }
     }
 
     function listenMessages() {
       client.addEventHandler(async (event) => {
-        const message = event.message;
-        
-        // Auto-Reply Feature
-        const autoReply = document.getElementById('auto-reply').checked;
-        if (autoReply && !message.out && message.isPrivate) {
-          const replyText = document.getElementById('auto-reply-text').value;
-          await client.sendMessage(message.senderId, { message: replyText });
+        const msg = event.message;
+        if (document.getElementById('auto-reply').checked && !msg.out && msg.isPrivate) {
+          await client.sendMessage(msg.senderId, { message: document.getElementById('auto-reply-text').value });
         }
-
-        if (activePeer && message.peerId && message.peerId.userId === activePeer.id) {
-          appendMessage(message.message, false);
+        if (activePeer && msg.peerId && msg.peerId.userId === activePeer.id) {
+          renderMessage(msg);
         }
       });
     }
 
     async function logout() {
-      if (confirm('Вы уверены, что хотите выйти? Сессия и API ключи будут удалены из этого браузера.')) {
-        if (client) {
-          await client.disconnect();
-        }
-        localStorage.removeItem('himigram_api_id');
-        localStorage.removeItem('himigram_api_hash');
-        localStorage.removeItem('himigram_session');
-        location.reload();
-      }
+      localStorage.clear();
+      location.reload();
     }
   </script>
 </body>
