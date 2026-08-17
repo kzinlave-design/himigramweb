@@ -1,363 +1,999 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Himigram Web</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Himigram – Telegram клиент</title>
+    <style>
+        /* ----- Глобальные стили и CSS-переменные для темы ----- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        :root {
+            --bg: #ffffff;
+            --bg-secondary: #f0f2f5;
+            --bg-chat: #ffffff;
+            --text: #000000;
+            --text-secondary: #555555;
+            --border: #e0e0e0;
+            --accent: #0088cc;
+            --accent-hover: #0077b3;
+            --shadow: 0 2px 8px rgba(0,0,0,0.1);
+            --radius: 12px;
+            --transition: 0.3s ease;
+        }
+        [data-theme="dark"] {
+            --bg: #1e1e1e;
+            --bg-secondary: #2d2d2d;
+            --bg-chat: #252525;
+            --text: #f0f0f0;
+            --text-secondary: #aaaaaa;
+            --border: #3d3d3d;
+            --accent: #4a9eff;
+            --accent-hover: #6aafff;
+            --shadow: 0 2px 8px rgba(0,0,0,0.5);
+        }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background var(--transition), color var(--transition);
+        }
+        /* ----- Экран входа (логин) ----- */
+        #login-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            background: var(--bg-secondary);
+            padding: 40px 50px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            max-width: 400px;
+            width: 90%;
+            transition: background var(--transition);
+        }
+        #login-screen .logo {
+            font-size: 72px;
+            animation: pulseRotate 2s infinite ease-in-out;
+            user-select: none;
+        }
+        @keyframes pulseRotate {
+            0% { transform: scale(1) rotate(0deg); }
+            50% { transform: scale(1.1) rotate(5deg); }
+            100% { transform: scale(1) rotate(0deg); }
+        }
+        #login-screen h1 {
+            font-size: 28px;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+        #login-screen h1 span {
+            font-weight: 700;
+            color: var(--accent);
+        }
+        #login-screen input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 16px;
+            outline: none;
+            transition: border var(--transition);
+        }
+        #login-screen input:focus {
+            border-color: var(--accent);
+        }
+        #login-screen button {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background var(--transition);
+        }
+        #login-screen button:hover {
+            background: var(--accent-hover);
+        }
+        #login-screen .hint {
+            font-size: 14px;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+        #login-screen .hint a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        #login-status {
+            margin-top: 10px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            min-height: 20px;
+        }
 
-  <!-- Полифил Buffer для GramJS -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/6.0.3/buffer.min.js"></script>
+        /* ----- Основной интерфейс (после входа) ----- */
+        #app {
+            display: none;
+            width: 100%;
+            height: 100vh;
+            background: var(--bg);
+            transition: background var(--transition);
+        }
+        #app.visible {
+            display: flex;
+        }
 
-  <!-- Рабочий бандл GramJS через jsDelivr + QR-генератор -->
-  <script src="https://cdn.jsdelivr.net/npm/telegram@2.22.2/browser/gramjs.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+        /* Боковая панель (список чатов) */
+        #sidebar {
+            width: 320px;
+            min-width: 320px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            transition: background var(--transition), border var(--transition);
+        }
+        #sidebar-header {
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            font-size: 20px;
+            font-weight: 600;
+        }
+        #sidebar-header .brand {
+            color: var(--accent);
+        }
+        #sidebar-header .settings-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text);
+            transition: transform 0.2s;
+        }
+        #sidebar-header .settings-btn:hover {
+            transform: rotate(60deg);
+        }
+        #dialogs-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+        .dialog-item {
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.15s;
+        }
+        .dialog-item:hover {
+            background: var(--bg);
+        }
+        .dialog-item.active {
+            background: var(--bg);
+            border-left: 4px solid var(--accent);
+        }
+        .dialog-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        .dialog-info {
+            flex: 1;
+            overflow: hidden;
+        }
+        .dialog-name {
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .dialog-last {
+            font-size: 13px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
 
-  <style>
-    :root {
-      --bg-main: #0f1821;
-      --bg-card: #17212b;
-      --accent: #5288c1;
-      --accent-hover: #649ad5;
-      --text: #f5f5f5;
-      --text-muted: #7f91a4;
-      --border: #242f3d;
-      --danger: #ef4444;
-    }
+        /* Область чата */
+        #chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-chat);
+            height: 100vh;
+        }
+        #chat-header {
+            padding: 12px 24px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            font-size: 18px;
+            background: var(--bg-secondary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        #chat-header .back-btn {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text);
+        }
+        #messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .message {
+            max-width: 70%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            background: var(--bg-secondary);
+            word-wrap: break-word;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+        .message.outgoing {
+            align-self: flex-end;
+            background: var(--accent);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        .message .meta {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        .message.outgoing .meta {
+            color: rgba(255,255,255,0.8);
+        }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        #message-input-area {
+            display: flex;
+            padding: 12px 20px;
+            gap: 12px;
+            border-top: 1px solid var(--border);
+            background: var(--bg-secondary);
+        }
+        #message-input {
+            flex: 1;
+            padding: 10px 16px;
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            background: var(--bg);
+            color: var(--text);
+            outline: none;
+            font-size: 16px;
+        }
+        #message-input:focus {
+            border-color: var(--accent);
+        }
+        #send-btn {
+            padding: 0 20px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 24px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background var(--transition);
+        }
+        #send-btn:hover {
+            background: var(--accent-hover);
+        }
 
-    body {
-      background: var(--bg-main);
-      color: var(--text);
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    }
+        /* ----- Модальное окно настроек ----- */
+        #settings-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+        #settings-modal.open {
+            display: flex;
+        }
+        .settings-panel {
+            background: var(--bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            color: var(--text);
+        }
+        .settings-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        .settings-header .close-btn {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: var(--text);
+        }
+        .settings-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+        }
+        .settings-tabs button {
+            flex: 1;
+            padding: 12px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .settings-tabs button.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+        .settings-body {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+        }
+        .settings-tab-content {
+            display: none;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .settings-tab-content.active {
+            display: flex;
+        }
+        .settings-tab-content label {
+            font-weight: 500;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .settings-tab-content input[type="text"],
+        .settings-tab-content input[type="number"],
+        .settings-tab-content select {
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-secondary);
+            color: var(--text);
+            font-size: 16px;
+            outline: none;
+        }
+        .settings-tab-content input:focus {
+            border-color: var(--accent);
+        }
+        .settings-tab-content .save-btn {
+            padding: 10px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background var(--transition);
+            margin-top: 8px;
+        }
+        .settings-tab-content .save-btn:hover {
+            background: var(--accent-hover);
+        }
+        .settings-tab-content .description {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
 
-    .auth-container {
-      background: var(--bg-card);
-      width: 420px;
-      padding: 36px 28px;
-      border-radius: 20px;
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
-      text-align: center;
-      border: 1px solid var(--border);
-    }
-
-    .tg-logo {
-      width: 70px;
-      height: 70px;
-      margin: 0 auto 12px auto;
-      display: block;
-      object-fit: contain;
-    }
-
-    h2 { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
-    p.subtext { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.4; }
-
-    .view-mode { display: none; }
-    .view-mode.active { display: block; }
-
-    .qr-wrapper {
-      position: relative;
-      width: 210px;
-      height: 210px;
-      margin: 0 auto 16px auto;
-      background: #ffffff;
-      padding: 10px;
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    #qrcode canvas, #qrcode img {
-      width: 100% !important;
-      height: 100% !important;
-    }
-
-    .auth-input {
-      width: 100%;
-      padding: 12px 14px;
-      background: var(--bg-main);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      color: #fff;
-      margin-bottom: 12px;
-      outline: none;
-      font-size: 14px;
-    }
-    .auth-input:focus { border-color: var(--accent); }
-
-    .btn-primary {
-      width: 100%;
-      padding: 12px;
-      background: var(--accent);
-      color: white;
-      border: none;
-      border-radius: 10px;
-      font-weight: bold;
-      cursor: pointer;
-      font-size: 14px;
-      margin-bottom: 10px;
-    }
-    .btn-primary:hover { background: var(--accent-hover); }
-
-    .btn-link {
-      background: none;
-      border: none;
-      color: var(--accent);
-      font-size: 13px;
-      cursor: pointer;
-      margin-top: 8px;
-    }
-
-    .error-box {
-      color: var(--danger);
-      font-size: 12px;
-      background: rgba(239, 68, 68, 0.1);
-      padding: 8px 12px;
-      border-radius: 8px;
-      margin-bottom: 12px;
-      display: none;
-      word-break: break-word;
-    }
-
-    .spinner {
-      border: 3px solid rgba(0,0,0,0.1);
-      border-top: 3px solid var(--accent);
-      border-radius: 50%;
-      width: 32px;
-      height: 32px;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin { 100% { transform: rotate(360deg); } }
-  </style>
+        /* Адаптив для мобильных */
+        @media (max-width: 700px) {
+            #sidebar {
+                width: 100%;
+                min-width: unset;
+                position: absolute;
+                left: 0;
+                top: 0;
+                z-index: 10;
+                transition: transform 0.3s;
+            }
+            #sidebar.hidden {
+                transform: translateX(-100%);
+            }
+            #chat-header .back-btn {
+                display: block;
+            }
+            #login-screen {
+                padding: 30px 20px;
+            }
+        }
+    </style>
 </head>
 <body>
-
-  <div class="auth-container">
-    <img src="https://telegram.org/img/t_logo.png" alt="Telegram Logo" class="tg-logo">
-    <h2>Himigram Web</h2>
-    <p id="subtext" class="subtext">Загрузка библиотеки...</p>
-
-    <div id="error-msg" class="error-box"></div>
-
-    <!-- ВХОД ПО QR -->
-    <div id="mode-qr" class="view-mode active">
-      <div class="qr-wrapper">
-        <div id="qrcode"><div class="spinner"></div></div>
-      </div>
-      <button class="btn-link" onclick="switchMode('phone')">Войти по номеру телефона / API</button>
+    <!-- Экран входа -->
+    <div id="login-screen">
+        <div class="logo">✈️</div>
+        <h1>Himi<span>gram</span></h1>
+        <input type="text" id="phone-input" placeholder="Номер телефона (например, 71234567890)" />
+        <input type="text" id="code-input" placeholder="Код подтверждения (если требуется)" style="display:none;" />
+        <button id="login-btn">Войти</button>
+        <div id="login-status">Введите номер телефона</div>
+        <div class="hint">
+            <a href="#" id="show-api-settings">Настроить API</a> (нужен api_id и api_hash)
+        </div>
     </div>
 
-    <!-- ВХОД ПО НОМЕРУ -->
-    <div id="mode-phone" class="view-mode">
-      <div id="step-1">
-        <input type="text" id="api-id" class="auth-input" placeholder="API ID">
-        <input type="text" id="api-hash" class="auth-input" placeholder="API Hash">
-        <input type="text" id="phone" class="auth-input" placeholder="Номер телефона (+7...)">
-        <button class="btn-primary" id="btn-send-code" onclick="requestCode()">Отправить код</button>
-      </div>
-
-      <div id="step-2" style="display:none;">
-        <input type="text" id="phone-code" class="auth-input" placeholder="Код из сообщения">
-        <button class="btn-primary" id="btn-submit-code" onclick="submitCode()">Подтвердить код</button>
-      </div>
-
-      <div id="step-3" style="display:none;">
-        <input type="password" id="password-2fa" class="auth-input" placeholder="Облачный пароль (2FA)">
-        <button class="btn-primary" id="btn-submit-2fa" onclick="submit2FA()">Войти</button>
-      </div>
-
-      <button class="btn-link" onclick="switchMode('qr')">← Вернуться к QR-коду</button>
+    <!-- Основной интерфейс -->
+    <div id="app">
+        <div id="sidebar">
+            <div id="sidebar-header">
+                <span class="brand">Himigram</span>
+                <button class="settings-btn" id="open-settings">⚙️</button>
+            </div>
+            <div id="dialogs-list"></div>
+        </div>
+        <div id="chat-area">
+            <div id="chat-header">
+                <button class="back-btn" id="back-btn">←</button>
+                <span id="current-chat-name">Выберите чат</span>
+            </div>
+            <div id="messages-container"></div>
+            <div id="message-input-area">
+                <input type="text" id="message-input" placeholder="Введите сообщение..." disabled />
+                <button id="send-btn" disabled>➤</button>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <script>
-    var client = null;
-    var phoneCodeHash = null;
-    var qrCodeObj = null;
+    <!-- Модальное окно настроек -->
+    <div id="settings-modal">
+        <div class="settings-panel">
+            <div class="settings-header">
+                <span>Настройки Himigram</span>
+                <button class="close-btn" id="close-settings">✕</button>
+            </div>
+            <div class="settings-tabs">
+                <button class="active" data-tab="api">API</button>
+                <button data-tab="theme">Оформление</button>
+                <button data-tab="features">Фишки</button>
+            </div>
+            <div class="settings-body">
+                <!-- Вкладка API -->
+                <div class="settings-tab-content active" id="tab-api">
+                    <label>
+                        API ID
+                        <input type="text" id="api-id-input" placeholder="Введите api_id" />
+                    </label>
+                    <label>
+                        API Hash
+                        <input type="text" id="api-hash-input" placeholder="Введите api_hash" />
+                    </label>
+                    <button class="save-btn" id="save-api">Сохранить API</button>
+                    <div class="description">Получить на <a href="https://my.telegram.org/apps" target="_blank">my.telegram.org</a></div>
+                </div>
+                <!-- Вкладка Оформление -->
+                <div class="settings-tab-content" id="tab-theme">
+                    <label>
+                        Тема
+                        <select id="theme-select">
+                            <option value="light">Светлая</option>
+                            <option value="dark">Тёмная</option>
+                            <option value="system">Системная</option>
+                        </select>
+                    </label>
+                    <button class="save-btn" id="save-theme">Применить тему</button>
+                </div>
+                <!-- Вкладка Фишки -->
+                <div class="settings-tab-content" id="tab-features">
+                    <label>
+                        Автоудаление отправленных сообщений (сек)
+                        <input type="number" id="auto-delete-input" value="0" min="0" step="5" />
+                        <span class="description">0 = отключено. После отправки сообщение будет удалено через указанное количество секунд (только для вас).</span>
+                    </label>
+                    <button class="save-btn" id="save-features">Сохранить</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    if (typeof window.Buffer === 'undefined' && window.buffer) {
-      window.Buffer = window.buffer.Buffer;
-    }
-
-    // Вспомогательная функция ожидания загрузки GramJS в DOM
-    async function waitForGramJS(maxAttempts = 50) {
-      for (let i = 0; i < maxAttempts; i++) {
-        const tg = window.telegram || window.gramjs || (window.GramJS ? window.GramJS : null);
-        if (tg && tg.TelegramClient) return tg;
-        await new Promise(r => setTimeout(r, 100));
-      }
-      throw new Error("Не удалось загрузить скрипт GramJS. Проверьте интернет-соединение или блокировки CDN.");
-    }
-
-    function showError(msg) {
-      const box = document.getElementById('error-msg');
-      box.innerText = msg;
-      box.style.display = 'block';
-    }
-
-    function clearError() {
-      const box = document.getElementById('error-msg');
-      box.style.display = 'none';
-      box.innerText = '';
-    }
-
-    function switchMode(mode) {
-      clearError();
-      document.querySelectorAll('.view-mode').forEach(m => m.classList.remove('active'));
-      if (mode === 'qr') {
-        document.getElementById('mode-qr').classList.add('active');
-        document.getElementById('subtext').innerText = 'Сканируйте QR-код через Telegram на телефоне';
-        initQRAuth();
-      } else {
-        document.getElementById('mode-phone').classList.add('active');
-        document.getElementById('subtext').innerText = 'Введите API данные и номер телефона';
-      }
-    }
-
-    async function initClient(apiId, apiHash) {
-      const tg = await waitForGramJS();
-      const { StringSession, TelegramClient } = tg;
-
-      if (!client) {
-        client = new TelegramClient(
-          new StringSession(''),
-          parseInt(apiId),
-          apiHash,
-          { connectionRetries: 5, useWSS: true }
-        );
-      }
-
-      if (!client.connected) {
-        await client.connect();
-      }
-
-      return client;
-    }
-
-    async function initQRAuth() {
-      const apiId = localStorage.getItem('himigram_api_id') || "2040";
-      const apiHash = localStorage.getItem('himigram_api_hash') || "b18441a1ed609e1c87a12a53845487d4";
-      const qrContainer = document.getElementById('qrcode');
-
-      try {
-        const cli = await initClient(apiId, apiHash);
-        document.getElementById('subtext').innerText = 'Сканируйте QR-код через Telegram на телефоне';
-
-        await cli.signInWithQrCode({
-          apiId: parseInt(apiId),
-          apiHash: apiHash,
-        }, {
-          qrCode: async (qr) => {
-            qrContainer.innerHTML = '';
-            
-            const tokenBase64 = window.Buffer.from(qr.token).toString("base64url");
-            const qrUrl = `tg://login?token=${tokenBase64}`;
-
-            if (!qrCodeObj) {
-              qrCodeObj = new QRCode(qrContainer, {
-                text: qrUrl,
-                width: 190,
-                height: 190
-              });
-            } else {
-              qrCodeObj.clear();
-              qrCodeObj.makeCode(qrUrl);
+    <script type="importmap">
+        {
+            "imports": {
+                "gramjs": "https://cdn.jsdelivr.net/npm/gramjs@13.7.0/dist/gramjs.min.js"
             }
-          },
-          password: async (hint) => {
-            return prompt(`Введите пароль 2FA (Подсказка: ${hint}):`);
-          }
+        }
+    </script>
+
+    <script type="module">
+        // ----- Импорты -----
+        import { TelegramClient, Api, StringSession } from 'gramjs';
+
+        // ----- DOM ссылки -----
+        const loginScreen = document.getElementById('login-screen');
+        const app = document.getElementById('app');
+        const phoneInput = document.getElementById('phone-input');
+        const codeInput = document.getElementById('code-input');
+        const loginBtn = document.getElementById('login-btn');
+        const loginStatus = document.getElementById('login-status');
+        const showApiSettings = document.getElementById('show-api-settings');
+        const dialogsList = document.getElementById('dialogs-list');
+        const messagesContainer = document.getElementById('messages-container');
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        const currentChatName = document.getElementById('current-chat-name');
+        const backBtn = document.getElementById('back-btn');
+        const openSettingsBtn = document.getElementById('open-settings');
+        const settingsModal = document.getElementById('settings-modal');
+        const closeSettingsBtn = document.getElementById('close-settings');
+        const saveApiBtn = document.getElementById('save-api');
+        const saveThemeBtn = document.getElementById('save-theme');
+        const saveFeaturesBtn = document.getElementById('save-features');
+        const apiIdInput = document.getElementById('api-id-input');
+        const apiHashInput = document.getElementById('api-hash-input');
+        const themeSelect = document.getElementById('theme-select');
+        const autoDeleteInput = document.getElementById('auto-delete-input');
+
+        // ----- Глобальные переменные -----
+        let client = null;
+        let currentDialogId = null;
+        let dialogs = [];
+        let autoDeleteSeconds = 0;
+
+        // ----- Хранение в localStorage -----
+        function loadSettings() {
+            const apiId = localStorage.getItem('himigram_api_id');
+            const apiHash = localStorage.getItem('himigram_api_hash');
+            const theme = localStorage.getItem('himigram_theme') || 'light';
+            const autoDelete = parseInt(localStorage.getItem('himigram_auto_delete')) || 0;
+            if (apiId) apiIdInput.value = apiId;
+            if (apiHash) apiHashInput.value = apiHash;
+            themeSelect.value = theme;
+            autoDeleteInput.value = autoDelete;
+            autoDeleteSeconds = autoDelete;
+            applyTheme(theme);
+        }
+
+        function saveApiSettings() {
+            const id = apiIdInput.value.trim();
+            const hash = apiHashInput.value.trim();
+            if (!id || !hash) {
+                alert('Заполните оба поля');
+                return;
+            }
+            localStorage.setItem('himigram_api_id', id);
+            localStorage.setItem('himigram_api_hash', hash);
+            alert('API сохранено. Перезайдите, чтобы применить.');
+        }
+
+        function applyTheme(theme) {
+            if (theme === 'system') {
+                const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+            } else {
+                document.documentElement.setAttribute('data-theme', theme);
+            }
+            localStorage.setItem('himigram_theme', theme);
+        }
+
+        function saveTheme() {
+            applyTheme(themeSelect.value);
+            alert('Тема применена');
+        }
+
+        function saveFeatures() {
+            const val = parseInt(autoDeleteInput.value) || 0;
+            autoDeleteSeconds = val;
+            localStorage.setItem('himigram_auto_delete', val);
+            alert('Настройки автоудаления сохранены');
+        }
+
+        // ----- Управление вкладками в настройках -----
+        document.querySelectorAll('.settings-tabs button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.settings-tabs button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const tab = btn.dataset.tab;
+                document.querySelectorAll('.settings-tab-content').forEach(el => el.classList.remove('active'));
+                document.getElementById(`tab-${tab}`).classList.add('active');
+            });
         });
 
-        localStorage.setItem('himigram_session', cli.session.save());
-        alert("Вход по QR выполнен успешно!");
-      } catch (err) {
-        console.error("QR Error:", err);
-        showError("Ошибка: " + (err.errorMessage || err.message || "Не удалось запустить авторизацию"));
-      }
-    }
+        // ----- Открыть/закрыть настройки -----
+        openSettingsBtn.addEventListener('click', () => {
+            settingsModal.classList.add('open');
+            // подгружаем текущие значения
+            apiIdInput.value = localStorage.getItem('himigram_api_id') || '';
+            apiHashInput.value = localStorage.getItem('himigram_api_hash') || '';
+            themeSelect.value = localStorage.getItem('himigram_theme') || 'light';
+            autoDeleteInput.value = localStorage.getItem('himigram_auto_delete') || '0';
+        });
+        closeSettingsBtn.addEventListener('click', () => settingsModal.classList.remove('open'));
+        settingsModal.addEventListener('click', (e) => {
+            if (e.target === settingsModal) settingsModal.classList.remove('open');
+        });
 
-    async function requestCode() {
-      clearError();
-      const apiId = document.getElementById('api-id').value.trim();
-      const apiHash = document.getElementById('api-hash').value.trim();
-      const phone = document.getElementById('phone').value.trim();
+        saveApiBtn.addEventListener('click', saveApiSettings);
+        saveThemeBtn.addEventListener('click', saveTheme);
+        saveFeaturesBtn.addEventListener('click', saveFeatures);
 
-      if (!apiId || !apiHash || !phone) return showError('Заполните API ID, API Hash и Телефон!');
+        // ----- Показать настройки API со страницы входа -----
+        showApiSettings.addEventListener('click', (e) => {
+            e.preventDefault();
+            openSettingsBtn.click();
+            // переключим на вкладку API
+            document.querySelectorAll('.settings-tabs button').forEach(b => b.classList.remove('active'));
+            document.querySelector('[data-tab="api"]').classList.add('active');
+            document.querySelectorAll('.settings-tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-api').classList.add('active');
+        });
 
-      const btn = document.getElementById('btn-send-code');
-      btn.disabled = true;
-      btn.innerText = 'Отправка...';
+        // ----- Логика входа -----
+        let phoneCodeHash = null;
+        let isCodeRequested = false;
 
-      try {
-        localStorage.setItem('himigram_api_id', apiId);
-        localStorage.setItem('himigram_api_hash', apiHash);
+        loginBtn.addEventListener('click', async () => {
+            const phone = phoneInput.value.trim();
+            if (!phone) {
+                loginStatus.textContent = 'Введите номер телефона';
+                return;
+            }
 
-        const cli = await initClient(apiId, apiHash);
-        const res = await cli.sendCode({ apiId: parseInt(apiId), apiHash }, phone);
+            // Если код не запрошен – запрашиваем
+            if (!isCodeRequested) {
+                const apiId = localStorage.getItem('himigram_api_id');
+                const apiHash = localStorage.getItem('himigram_api_hash');
+                if (!apiId || !apiHash) {
+                    loginStatus.textContent = 'Сначала настройте API в настройках (шестерёнка)';
+                    return;
+                }
 
-        phoneCodeHash = res.phoneCodeHash;
+                try {
+                    loginStatus.textContent = 'Отправка кода...';
+                    client = new TelegramClient(
+                        new StringSession(''), 
+                        parseInt(apiId), 
+                        apiHash, 
+                        { connectionRetries: 5 }
+                    );
+                    await client.start({
+                        phone: () => phone,
+                        password: () => '', // если 2FA – можно запросить отдельно
+                        phoneCode: () => codeInput.value,
+                        onError: (err) => {
+                            loginStatus.textContent = 'Ошибка: ' + err.message;
+                        }
+                    });
+                    // Если дошли сюда – вход выполнен (код ввели правильно)
+                    loginStatus.textContent = 'Вход выполнен!';
+                    isCodeRequested = false;
+                    codeInput.style.display = 'none';
+                    loginBtn.textContent = 'Войти';
+                    initApp();
+                } catch (err) {
+                    // Если требуется код – покажем поле
+                    if (err.message && err.message.includes('PHONE_CODE_INVALID')) {
+                        loginStatus.textContent = 'Неверный код, попробуйте ещё';
+                    } else if (err.message && err.message.includes('PHONE_CODE_EXPIRED')) {
+                        loginStatus.textContent = 'Код истёк, запросите заново';
+                        isCodeRequested = false;
+                        codeInput.style.display = 'none';
+                        loginBtn.textContent = 'Войти';
+                    } else if (err.message && err.message.includes('SEND_CODE_UNAVAILABLE')) {
+                        loginStatus.textContent = 'Ошибка отправки кода, попробуйте позже';
+                    } else {
+                        loginStatus.textContent = 'Ошибка: ' + err.message;
+                        // Если ошибка говорит о том, что нужно ввести код – покажем поле
+                        if (err.message && err.message.includes('PHONE_CODE')) {
+                            // Не перехватываем, но показываем поле
+                        }
+                    }
+                    // Если ошибка содержит "need to enter code" – покажем поле
+                    if (err.message && err.message.toLowerCase().includes('code')) {
+                        codeInput.style.display = 'block';
+                        codeInput.placeholder = 'Код из SMS';
+                        loginBtn.textContent = 'Подтвердить';
+                        isCodeRequested = true;
+                    }
+                }
+            } else {
+                // Уже запрошен код – пытаемся подтвердить
+                const code = codeInput.value.trim();
+                if (!code) {
+                    loginStatus.textContent = 'Введите код подтверждения';
+                    return;
+                }
+                try {
+                    loginStatus.textContent = 'Подтверждение...';
+                    await client.start({
+                        phone: () => phone,
+                        password: () => '',
+                        phoneCode: () => code,
+                        onError: (err) => {
+                            loginStatus.textContent = 'Ошибка: ' + err.message;
+                        }
+                    });
+                    loginStatus.textContent = 'Вход выполнен!';
+                    isCodeRequested = false;
+                    codeInput.style.display = 'none';
+                    loginBtn.textContent = 'Войти';
+                    initApp();
+                } catch (err) {
+                    loginStatus.textContent = 'Ошибка: ' + err.message;
+                }
+            }
+        });
 
-        document.getElementById('step-1').style.display = 'none';
-        document.getElementById('step-2').style.display = 'block';
-        document.getElementById('subtext').innerText = `Код отправлен в приложение на номер ${phone}`;
-      } catch (err) {
-        console.error("Phone Error:", err);
-        showError("Ошибка отправки: " + (err.errorMessage || err.message));
-        btn.disabled = false;
-        btn.innerText = 'Отправить код';
-      }
-    }
+        // Для упрощения: если пользователь вводит номер и нажимает Enter, запрашиваем код.
+        phoneInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') loginBtn.click();
+        });
+        codeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') loginBtn.click();
+        });
 
-    async function submitCode() {
-      clearError();
-      const phone = document.getElementById('phone').value.trim();
-      const code = document.getElementById('phone-code').value.trim();
+        // ----- Инициализация приложения после входа -----
+        async function initApp() {
+            // Сохраним сессию
+            const sessionString = client.session.save();
+            localStorage.setItem('himigram_session', sessionString);
 
-      if (!code) return showError('Введите код!');
+            loginScreen.style.display = 'none';
+            app.classList.add('visible');
+            loadDialogs();
+            // Включаем ввод сообщений
+            messageInput.disabled = false;
+            sendBtn.disabled = false;
 
-      try {
-        const tg = await waitForGramJS();
-        await client.invoke(new tg.Api.auth.SignIn({
-          phoneNumber: phone,
-          phoneCodeHash: phoneCodeHash,
-          phoneCode: code
-        }));
-
-        localStorage.setItem('himigram_session', client.session.save());
-        alert("Успешный вход!");
-      } catch (err) {
-        if (err.errorMessage === 'SESSION_PASSWORD_NEEDED') {
-          document.getElementById('step-2').style.display = 'none';
-          document.getElementById('step-3').style.display = 'block';
-        } else {
-          showError("Ошибка кода: " + (err.errorMessage || err.message));
+            // Подписка на новые сообщения (обновление списка диалогов)
+            // Для упрощения будем обновлять вручную при отправке / получении.
         }
-      }
-    }
 
-    async function submit2FA() {
-      clearError();
-      const password = document.getElementById('password-2fa').value.trim();
-      try {
-        await client.signInWithPassword({ password });
-        localStorage.setItem('himigram_session', client.session.save());
-        alert("Успешный вход!");
-      } catch (err) {
-        showError("Ошибка 2FA: " + (err.errorMessage || err.message));
-      }
-    }
+        // ----- Загрузка диалогов -----
+        async function loadDialogs() {
+            if (!client) return;
+            try {
+                const result = await client.getDialogs();
+                dialogs = result;
+                renderDialogs(dialogs);
+            } catch (e) {
+                console.error('Ошибка загрузки диалогов', e);
+            }
+        }
 
-    window.addEventListener('DOMContentLoaded', () => {
-      initQRAuth();
-    });
-  </script>
+        function renderDialogs(dialogs) {
+            dialogsList.innerHTML = '';
+            dialogs.forEach(dialog => {
+                const div = document.createElement('div');
+                div.className = 'dialog-item';
+                if (dialog.id === currentDialogId) div.classList.add('active');
+
+                const avatar = document.createElement('div');
+                avatar.className = 'dialog-avatar';
+                // Первая буква имени
+                const name = dialog.title || 'Чат';
+                avatar.textContent = name.charAt(0).toUpperCase();
+
+                const info = document.createElement('div');
+                info.className = 'dialog-info';
+                const nameSpan = document.createElement('div');
+                nameSpan.className = 'dialog-name';
+                nameSpan.textContent = name;
+                const lastSpan = document.createElement('div');
+                lastSpan.className = 'dialog-last';
+                lastSpan.textContent = dialog.message ? dialog.message.text : 'Нет сообщений';
+                info.appendChild(nameSpan);
+                info.appendChild(lastSpan);
+
+                div.appendChild(avatar);
+                div.appendChild(info);
+
+                div.addEventListener('click', () => {
+                    selectDialog(dialog);
+                });
+
+                dialogsList.appendChild(div);
+            });
+        }
+
+        async function selectDialog(dialog) {
+            currentDialogId = dialog.id;
+            currentChatName.textContent = dialog.title || 'Чат';
+            // Обновим активный класс
+            document.querySelectorAll('.dialog-item').forEach(el => el.classList.remove('active'));
+            const items = dialogsList.querySelectorAll('.dialog-item');
+            const index = dialogs.findIndex(d => d.id === dialog.id);
+            if (index !== -1 && items[index]) items[index].classList.add('active');
+
+            // Загружаем сообщения
+            try {
+                const messages = await client.getMessages(dialog, { limit: 50 });
+                renderMessages(messages);
+                // Прокручиваем вниз
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            } catch (e) {
+                console.error('Ошибка загрузки сообщений', e);
+            }
+        }
+
+        function renderMessages(messages) {
+            messagesContainer.innerHTML = '';
+            messages.reverse(); // от старых к новым
+            messages.forEach(msg => {
+                const div = document.createElement('div');
+                div.className = 'message';
+                if (msg.out) div.classList.add('outgoing');
+                div.textContent = msg.text || 'Сообщение';
+                const meta = document.createElement('div');
+                meta.className = 'meta';
+                const date = new Date(msg.date * 1000);
+                meta.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                div.appendChild(meta);
+                messagesContainer.appendChild(div);
+            });
+            // Если сообщений нет – покажем заглушку
+            if (messages.length === 0) {
+                const empty = document.createElement('div');
+                empty.style.textAlign = 'center';
+                empty.style.color = 'var(--text-secondary)';
+                empty.style.padding = '40px 0';
+                empty.textContent = 'Нет сообщений. Напишите что-нибудь!';
+                messagesContainer.appendChild(empty);
+            }
+        }
+
+        // ----- Отправка сообщения -----
+        sendBtn.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        async function sendMessage() {
+            const text = messageInput.value.trim();
+            if (!text || !currentDialogId) return;
+            if (!client) return;
+
+            try {
+                const dialog = dialogs.find(d => d.id === currentDialogId);
+                if (!dialog) return;
+                const result = await client.sendMessage(dialog.entity, { message: text });
+                messageInput.value = '';
+                // Добавляем сообщение в список
+                const msgDiv = document.createElement('div');
+                msgDiv.className = 'message outgoing';
+                msgDiv.textContent = text;
+                const meta = document.createElement('div');
+                meta.className = 'meta';
+                const date = new Date();
+                meta.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                msgDiv.appendChild(meta);
+                messagesContainer.appendChild(msgDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+                // Автоудаление (только для себя, если включено)
+                if (autoDeleteSeconds > 0) {
+                    setTimeout(async () => {
+                        try {
+                            // Удаляем последнее отправленное сообщение (используем ID из result)
+                            if (result && result.id) {
+                                await client.deleteMessages(dialog.entity, [result.id]);
+                                // Удаляем из DOM
+                                const lastMsg = messagesContainer.lastElementChild;
+                                if (lastMsg && lastMsg.classList.contains('outgoing')) {
+                                    lastMsg.remove();
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Не удалось удалить сообщение', e);
+                        }
+                    }, autoDeleteSeconds * 1000);
+                }
+
+            } catch (e) {
+                console.error('Ошибка отправки', e);
+                alert('Не удалось отправить сообщение');
+            }
+        }
+
+        // ----- Кнопка "Назад" на мобильных -----
+        backBtn.addEventListener('click', () => {
+            document.getElementById('sidebar').classList.toggle('hidden');
+        });
+
+        // ----- Восстановление сессии при загрузке -----
+        async function restoreSession() {
+            const session = localStorage.getItem('himigram_session');
+            const apiId = localStorage.getItem('himigram_api_id');
+            const apiHash = localStorage.getItem('himigram_api_hash');
+            if (session && apiId && apiHash) {
+                try {
+                    client = new TelegramClient(
+                        new StringSession(session),
+                        parseInt(apiId),
+                        apiHash,
+                        { connectionRetries: 5 }
+                    );
+                    await client.connect();
+                    if (await client.checkAuthorization()) {
+                        // Успешно
+                        loginScreen.style.display = 'none';
+                        app.classList.add('visible');
+                        messageInput.disabled = false;
+                        sendBtn.disabled = false;
+                        loadDialogs();
+                        return true;
+                    }
+                } catch (e) {
+                    console.warn('Не удалось восстановить сессию', e);
+                    localStorage.removeItem('himigram_session');
+                }
+            }
+            return false;
+        }
+
+        // ----- Запуск -----
+        loadSettings();
+        restoreSession().then(restored => {
+            if (!restored) {
+                loginScreen.style.display = 'flex';
+                app.classList.remove('visible');
+            }
+        });
+
+        // ----- Обработка изменения системной темы (для "system") -----
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+            if (themeSelect.value === 'system') {
+                applyTheme('system');
+            }
+        });
+
+        console.log('Himigram загружен!');
+    </script>
 </body>
 </html>
