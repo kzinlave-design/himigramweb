@@ -5,9 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Himigram Web</title>
 
-  <!-- Полифил Buffer (ОБЯЗАТЕЛЕН для генерации QR в GramJS) -->
+  <!-- Полифил Buffer для работы GramJS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/6.0.3/buffer.min.js"></script>
-  <script>window.Buffer = window.buffer.Buffer;</script>
 
   <!-- Библиотека GramJS и QR-генератор -->
   <script src="https://unpkg.com/telegram@2.22.2/browser/gramjs.js"></script>
@@ -61,7 +60,6 @@
     .view-mode { display: none; }
     .view-mode.active { display: block; }
 
-    /* QR Стили */
     .qr-wrapper {
       position: relative;
       width: 210px;
@@ -80,7 +78,6 @@
       height: 100% !important;
     }
 
-    /* Форма ввода */
     .auth-input {
       width: 100%;
       padding: 12px 14px;
@@ -149,7 +146,7 @@
 
     <div id="error-msg" class="error-box"></div>
 
-    <!-- РЕЖИМ 1: QR КОД -->
+    <!-- ВХОД ПО QR -->
     <div id="mode-qr" class="view-mode active">
       <div class="qr-wrapper">
         <div id="qrcode"><div class="spinner"></div></div>
@@ -157,7 +154,7 @@
       <button class="btn-link" onclick="switchMode('phone')">Войти по номеру телефона / API</button>
     </div>
 
-    <!-- РЕЖИМ 2: ВХОД ПО НОМЕРУ -->
+    <!-- ВХОД ПО НОМЕРУ -->
     <div id="mode-phone" class="view-mode">
       <div id="step-1">
         <input type="text" id="api-id" class="auth-input" placeholder="API ID">
@@ -181,13 +178,19 @@
   </div>
 
   <script>
-    const tg = window.telegram || window.gramjs;
-    const { StringSession } = tg.sessions;
-    const { TelegramClient, Api } = tg;
+    // 1. Объявляем глобальные переменные в самом начале файла
+    var client = null;
+    var phoneCodeHash = null;
+    var qrCodeObj = null;
 
-    let client = null;
-    let qrCodeObj = null;
-    let phoneCodeHash = null;
+    // Инициализация полифила Buffer
+    if (typeof window.Buffer === 'undefined' && window.buffer) {
+      window.Buffer = window.buffer.Buffer;
+    }
+
+    function getTelegram() {
+      return window.telegram || window.gramjs;
+    }
 
     function showError(msg) {
       const box = document.getElementById('error-msg');
@@ -214,27 +217,37 @@
       }
     }
 
-    // ИНИЦИАЛИЗАЦИЯ КЛИЕНТА
-    async function getClient(apiId, apiHash) {
+    // Инициализация/получение экземпляра TelegramClient
+    async function initClient(apiId, apiHash) {
+      const tg = getTelegram();
+      if (!tg) throw new Error("Библиотека GramJS не загрузилась!");
+
+      const { StringSession, TelegramClient } = tg;
+
       if (!client) {
-        client = new TelegramClient(new StringSession(''), parseInt(apiId), apiHash, {
-          connectionRetries: 5,
-          useWSS: true // Защита от блокировок WebSocket
-        });
+        client = new TelegramClient(
+          new StringSession(''),
+          parseInt(apiId),
+          apiHash,
+          { connectionRetries: 5, useWSS: true }
+        );
+      }
+
+      if (!client.connected) {
         await client.connect();
       }
+
       return client;
     }
 
-    // 1. ЛОГИКА ГЕНЕРАЦИИ QR-КОДА
+    // Вход по QR
     async function initQRAuth() {
-      const apiId = localStorage.getItem('himigram_api_id') || "2040"; // Дефолтный публичный ID при отсутствии
+      const apiId = localStorage.getItem('himigram_api_id') || "2040";
       const apiHash = localStorage.getItem('himigram_api_hash') || "b18441a1ed609e1c87a12a53845487d4";
-
       const qrContainer = document.getElementById('qrcode');
 
       try {
-        const cli = await getClient(apiId, apiHash);
+        const cli = await initClient(apiId, apiHash);
 
         await cli.signInWithQrCode({
           apiId: parseInt(apiId),
@@ -243,8 +256,7 @@
           qrCode: async (qr) => {
             qrContainer.innerHTML = '';
             
-            // Превращаем токен в ссылку для Telegram
-            const tokenBase64 = Buffer.from(qr.token).toString("base64url");
+            const tokenBase64 = window.Buffer.from(qr.token).toString("base64url");
             const qrUrl = `tg://login?token=${tokenBase64}`;
 
             if (!qrCodeObj) {
@@ -271,7 +283,7 @@
       }
     }
 
-    // 2. ЛОГИКА ВХОДА ПО НОМЕРУ
+    // Вход по Номеру
     async function requestCode() {
       clearError();
       const apiId = document.getElementById('api-id').value.trim();
@@ -288,9 +300,9 @@
         localStorage.setItem('himigram_api_id', apiId);
         localStorage.setItem('himigram_api_hash', apiHash);
 
-        const cli = await getClient(apiId, apiHash);
+        const cli = await initClient(apiId, apiHash);
         const res = await cli.sendCode({ apiId: parseInt(apiId), apiHash }, phone);
-        
+
         phoneCodeHash = res.phoneCodeHash;
 
         document.getElementById('step-1').style.display = 'none';
@@ -311,8 +323,10 @@
 
       if (!code) return showError('Введите код!');
 
+      const tg = getTelegram();
+
       try {
-        await client.invoke(new Api.auth.SignIn({
+        await client.invoke(new tg.Api.auth.SignIn({
           phoneNumber: phone,
           phoneCodeHash: phoneCodeHash,
           phoneCode: code
