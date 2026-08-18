@@ -382,9 +382,9 @@ let gramjsReady = false;
 async function ensureGramJS(){
   if(gramjsReady) return;
   const [core, sessions, events] = await Promise.all([
-    import("https://esm.sh/telegram@2.26.22?bundle&target=es2022"),
-    import("https://esm.sh/telegram@2.26.22/sessions?bundle&target=es2022"),
-    import("https://esm.sh/telegram@2.26.22/events?bundle&target=es2022"),
+    import("https://esm.sh/telegram@2.26.22"),
+    import("https://esm.sh/telegram@2.26.22/sessions"),
+    import("https://esm.sh/telegram@2.26.22/events"),
   ]);
   TelegramClient = core.TelegramClient;
   StringSession = sessions.StringSession;
