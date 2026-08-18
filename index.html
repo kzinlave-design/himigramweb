@@ -371,24 +371,24 @@
   </div>
 </div>
 
+<script src="gramjs.bundle.js"></script>
 <script type="module">
-// важно: НЕ грузим GramJS статическим import() на верху файла.
-// если esm.sh недоступен/долго отвечает - static import блокирует
-// выполнение вообще всего скрипта, и сплэш/UI зависают намертво.
-// поэтому библиотека грузится лениво, по требованию, с обработкой ошибок.
+// gramjs.bundle.js - это оффлайн webpack-сборка библиотеки telegram (GramJS),
+// собранная напрямую из npm-пакета. НЕ используем CDN типа esm.sh -
+// он дублирует классы (StringSession) между сабмодулями, из-за чего
+// внутренние instanceof-проверки GramJS ломаются ("Only StringSession
+// and StoreSessions are supported currently"). Локальный бандл этого лишён.
 let TelegramClient, StringSession, NewMessage;
 let gramjsReady = false;
 
 async function ensureGramJS(){
   if(gramjsReady) return;
-  const [core, sessions, events] = await Promise.all([
-    import("https://esm.sh/telegram@2.26.22"),
-    import("https://esm.sh/telegram@2.26.22/sessions"),
-    import("https://esm.sh/telegram@2.26.22/events"),
-  ]);
-  TelegramClient = core.TelegramClient;
-  StringSession = sessions.StringSession;
-  NewMessage = events.NewMessage;
+  if(!window.GramJS){
+    throw new Error('gramjs.bundle.js не загрузился (проверь что файл лежит рядом с html)');
+  }
+  TelegramClient = window.GramJS.TelegramClient;
+  StringSession = window.GramJS.StringSession;
+  NewMessage = window.GramJS.NewMessage;
   gramjsReady = true;
 }
 
